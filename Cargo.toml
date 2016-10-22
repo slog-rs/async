@@ -1,6 +1,6 @@
 [package]
 name = "slog-extra"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
 description = "Standard slog-rs extensions"
 keywords = ["slog", "logging", "log"]
@@ -14,5 +14,5 @@ readme = "README.md"
 path = "lib.rs"
 
 [dependencies]
-slog = "1.1"
+slog = "1.2.0"
 thread_local = { version = "0.2.6" }
