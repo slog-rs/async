@@ -16,3 +16,4 @@ path = "lib.rs"
 [dependencies]
 slog = { git = "https://github.com/slog-rs/slog", branch="2.x.y" }
 thread_local = { version = "0.2.6" }
+take_mut = "*"

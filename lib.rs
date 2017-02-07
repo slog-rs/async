@@ -3,13 +3,16 @@
 
 extern crate slog;
 extern crate thread_local;
+extern crate take_mut;
+
+use take_mut::take;
 
 use slog::Drain;
 
 use std::sync::{mpsc, Mutex};
 use std::fmt;
 use std::{io, thread};
-use slog::{Record, RecordStatic, Level, SingleKV};
+use slog::{Record, RecordStatic, Level, SingleKV, KV};
 use slog::{Serializer, OwnedKVList};
 
 
@@ -47,18 +50,11 @@ impl Async {
                                 module: r.module,
                                 target: &r.target,
                             };
-                            // Idea here is, that because the representation of
-                            // `[Box<KV>]` and `[&KV]` are the same, the optimizer
-                            // can turn this into NOP.
-                            let record_values: Vec<&slog::KV> = r.record_values
-                                .iter()
-                                .map(|kv| (&**kv as &slog::KV))
-                                .collect();
 
                             drain.log(
                                 &Record::new(&rs,
                                              format_args!("{}", r.msg),
-                                             record_values.as_slice()
+                                             &*r.kv
                                             ),
                                             &r.logger_values
                                             ).unwrap();
@@ -92,95 +88,95 @@ impl Async {
 
 }
 
-type RecordValues = Vec<Box<slog::KV+Send>>;
-
 struct ToSendSerializer {
-    record_values: RecordValues,
+    kv: Box<KV+Send>,
 }
 
 impl ToSendSerializer {
     fn new() -> Self {
-        ToSendSerializer { record_values: Vec::new() }
+        ToSendSerializer { kv: Box::new(()) }
     }
 
-    fn finish(self) -> RecordValues {
-        self.record_values
+    fn finish(self) -> Box<KV+Send> {
+        self.kv
     }
 }
 
 impl Serializer for ToSendSerializer {
     fn emit_bool(&mut self, key: &str, val: bool) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_unit(&mut self, key: &str) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), ())));
+        let val = ();
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_none(&mut self, key: &str) -> slog::Result {
         let val: Option<()> = None;
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_char(&mut self, key: &str, val: char) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_u8(&mut self, key: &str, val: u8) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_i8(&mut self, key: &str, val: i8) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_u16(&mut self, key: &str, val: u16) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_i16(&mut self, key: &str, val: i16) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_u32(&mut self, key: &str, val: u32) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_i32(&mut self, key: &str, val: i32) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_f32(&mut self, key: &str, val: f32) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_u64(&mut self, key: &str, val: u64) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_i64(&mut self, key: &str, val: i64) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_f64(&mut self, key: &str, val: f64) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_usize(&mut self, key: &str, val: usize) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_isize(&mut self, key: &str, val: isize) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_str(&mut self, key: &str, val: &str) -> slog::Result {
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val.to_owned())));
+        let val = val.to_owned();
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
     fn emit_arguments(&mut self, key: &str, val: &fmt::Arguments) -> slog::Result {
         let val = fmt::format(*val);
-        self.record_values.push(Box::new(SingleKV(key.to_owned(), val)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
         Ok(())
     }
 }
@@ -192,9 +188,7 @@ impl Drain for Async {
     fn log(&self, record: &Record, logger_values: &OwnedKVList) -> io::Result<()> {
 
         let mut ser = ToSendSerializer::new();
-        for kv in record.values() {
-            try!(kv.serialize(record, &mut ser))
-        }
+        try!(record.kv().serialize(record, &mut ser));
 
         self.send(AsyncRecord {
             msg: fmt::format(record.msg()),
@@ -206,7 +200,7 @@ impl Drain for Async {
             module: record.module(),
             target: String::from(record.target()),
             logger_values: logger_values.clone(),
-            record_values: ser.finish(),
+            kv: ser.finish(),
         })
     }
 }
@@ -221,7 +215,7 @@ struct AsyncRecord {
     module: &'static str,
     target: String,
     logger_values: OwnedKVList,
-    record_values: RecordValues,
+    kv: Box<KV+Send>,
 }
 
 enum AsyncMsg {
