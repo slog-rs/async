@@ -12,7 +12,7 @@ use slog::Drain;
 use std::sync::{mpsc, Mutex};
 use std::fmt;
 use std::{io, thread};
-use slog::{Record, RecordStatic, Level, SingleKV, KV};
+use slog::{Record, RecordStatic, Level, SingleKV, KV, BorrowedKV};
 use slog::{Serializer, OwnedKVList};
 
 
@@ -54,7 +54,7 @@ impl Async {
                             drain.log(
                                 &Record::new(&rs,
                                              format_args!("{}", r.msg),
-                                             &*r.kv
+                                             BorrowedKV(&r.kv)
                                             ),
                                             &r.logger_values
                                             ).unwrap();
