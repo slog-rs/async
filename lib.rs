@@ -13,7 +13,7 @@ use std::sync::{mpsc, Mutex};
 use std::fmt;
 use std::{io, thread};
 use slog::{Record, RecordStatic, Level, SingleKV, KV, BorrowedKV};
-use slog::{Serializer, OwnedKVList};
+use slog::{Serializer, OwnedKVList, Key};
 
 
 /// `Async` drain
@@ -103,80 +103,80 @@ impl ToSendSerializer {
 }
 
 impl Serializer for ToSendSerializer {
-    fn emit_bool(&mut self, key: &str, val: bool) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_bool(&mut self, key: Key, val: bool) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_unit(&mut self, key: &str) -> slog::Result {
+    fn emit_unit(&mut self, key: Key) -> slog::Result {
         let val = ();
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_none(&mut self, key: &str) -> slog::Result {
+    fn emit_none(&mut self, key: Key) -> slog::Result {
         let val: Option<()> = None;
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_char(&mut self, key: &str, val: char) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_char(&mut self, key: Key, val: char) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_u8(&mut self, key: &str, val: u8) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_u8(&mut self, key: Key, val: u8) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_i8(&mut self, key: &str, val: i8) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_i8(&mut self, key: Key, val: i8) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_u16(&mut self, key: &str, val: u16) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_u16(&mut self, key: Key, val: u16) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_i16(&mut self, key: &str, val: i16) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_i16(&mut self, key: Key, val: i16) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_u32(&mut self, key: &str, val: u32) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_u32(&mut self, key: Key, val: u32) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_i32(&mut self, key: &str, val: i32) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_i32(&mut self, key: Key, val: i32) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_f32(&mut self, key: &str, val: f32) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_f32(&mut self, key: Key, val: f32) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_u64(&mut self, key: &str, val: u64) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_u64(&mut self, key: Key, val: u64) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_i64(&mut self, key: &str, val: i64) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_i64(&mut self, key: Key, val: i64) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_f64(&mut self, key: &str, val: f64) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_f64(&mut self, key: Key, val: f64) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_usize(&mut self, key: &str, val: usize) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_usize(&mut self, key: Key, val: usize) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_isize(&mut self, key: &str, val: isize) -> slog::Result {
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+    fn emit_isize(&mut self, key: Key, val: isize) -> slog::Result {
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_str(&mut self, key: &str, val: &str) -> slog::Result {
+    fn emit_str(&mut self, key: Key, val: &str) -> slog::Result {
         let val = val.to_owned();
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_arguments(&mut self, key: &str, val: &fmt::Arguments) -> slog::Result {
+    fn emit_arguments(&mut self, key: Key, val: &fmt::Arguments) -> slog::Result {
         let val = fmt::format(*val);
-        take(&mut self.kv, |kv| Box::new((SingleKV(key.to_owned(), val), kv)));
+        take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
 }
