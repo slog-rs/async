@@ -32,10 +32,10 @@ pub struct Async {
 impl Async {
     /// Create `Async` drain
     ///
-    /// The wrapped drain must handle all error conditions (`Drain<Error=Never>`). See
-    /// `slog::DrainExt::fuse()` and `slog::DrainExt::ignore_err()` for typical error handling
-    /// strategies.
-    pub fn new<D: slog::Drain<Error=slog::Never> + Send + 'static>(drain: D) -> Self {
+    /// The wrapped drain must handle all results (`Drain<Ok=(),Error=Never>`)
+    /// since there's no way to return it back. See `slog::DrainExt::fuse()` and
+    /// `slog::DrainExt::ignore_res()` for typical error handling strategies.
+    pub fn new<D: slog::Drain<Err=slog::Never,Ok=()> + Send + 'static>(drain: D) -> Self {
         let (tx, rx) = mpsc::channel();
         let join = thread::spawn(move || {
                 loop {
@@ -183,9 +183,11 @@ impl Serializer for ToSendSerializer {
 
 
 impl Drain for Async {
-    type Error = io::Error;
+    type Ok = ();
+    type Err = io::Error;
 
-    fn log(&self, record: &Record, logger_values: &OwnedKVList) -> io::Result<()> {
+    fn log(&self, record: &Record, logger_values: &OwnedKVList) ->
+        io::Result<()> {
 
         let mut ser = ToSendSerializer::new();
         try!(record.kv().serialize(record, &mut ser));
