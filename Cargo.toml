@@ -1,5 +1,5 @@
 [package]
-name = "slog-extra"
+name = "slog-std"
 version = "0.2.0-alpha1"
 authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
 description = "Standard slog-rs extensions"
