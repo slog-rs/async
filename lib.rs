@@ -429,9 +429,7 @@ impl Drain for Async {
 
 impl Drop for Async {
     fn drop(&mut self) {
-        // TODO: Some macro here?
-        let log = slog::Logger::root(slog::Discard, o!());
-        let _ = self.push_dropped(log.list());
+        let _ = self.push_dropped(&o!().into());
     }
 }
 
