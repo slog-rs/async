@@ -240,13 +240,9 @@ impl<D> From<AsyncBuilder<D>> for AsyncCore
             match rx.recv().unwrap() {
                 AsyncMsg::Record(r) => {
                     let rs = RecordStatic {
+                        location: r.location,
                         level: r.level,
-                        file: r.file,
-                        line: r.line,
-                        column: r.column,
-                        function: r.function,
-                        module: r.module,
-                        target: &r.target,
+                        tag: &r.tag,
                     };
 
                     from.drain
@@ -279,12 +275,8 @@ impl Drain for AsyncCore {
         self.send(AsyncRecord {
             msg: fmt::format(record.msg()),
             level: record.level(),
-            file: record.file(),
-            line: record.line(),
-            column: record.column(),
-            function: record.function(),
-            module: record.module(),
-            target: String::from(record.target()),
+            location: record.location(),
+            tag : String::from(record.tag()),
             logger_values: logger_values.clone(),
             kv: ser.finish(),
         })
@@ -294,12 +286,8 @@ impl Drain for AsyncCore {
 struct AsyncRecord {
     msg: String,
     level: Level,
-    file: &'static str,
-    line: u32,
-    column: u32,
-    function: &'static str,
-    module: &'static str,
-    target: String,
+    location: &'static slog::RecordLocation,
+    tag: String,
     logger_values: OwnedKVList,
     kv: Box<KV + Send>,
 }
@@ -364,24 +352,14 @@ impl Async {
     fn push_dropped(&self, logger_values : &OwnedKVList) -> AsyncResult<()> {
         let dropped = self.dropped.swap(0, Ordering::Relaxed);
         if dropped > 0 {
-            static RS : slog::RecordStatic<'static> = slog::RecordStatic {
-                level: slog::Level::Error,
-                file: file!(),
-                line: line!(),
-                column: column!(),
-                function: "",
-                module: module_path!(),
-                target: module_path!(),
-            };
-
-            match self.core.log(&Record::new(
-                &RS,
-                format_args!("dropped messages due to channel overflow"),
-                slog::BorrowedKV(&(
-                        slog::SingleKV("count", dropped),
-                        ()
-                        )),
-            ), logger_values) {
+            match self.core.log(
+                &record!(
+                    slog::Level::Error,
+                    "",
+                    format_args!("dropped messages due to channel overflow"),
+                    b!("count" => dropped)
+                ),
+                logger_values) {
                 Ok(()) => {},
                 Err(AsyncError::Full) => {
                     self.dropped.fetch_add(dropped + 1, Ordering::Relaxed);
