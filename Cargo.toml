@@ -5,9 +5,9 @@ authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
 description = "Standard slog-rs extensions"
 keywords = ["slog", "logging", "log"]
 license = "MPL-2.0"
-documentation = "https://docs.rs/slog-extra"
+documentation = "https://docs.rs/slog-std"
 homepage = "https://github.com/slog-rs/slog"
-repository = "https://github.com/slog-rs/extra"
+repository = "https://github.com/slog-rs/std"
 readme = "README.md"
 
 [lib]
@@ -15,5 +15,5 @@ path = "lib.rs"
 
 [dependencies]
 slog = { git = "https://github.com/slog-rs/slog", branch="2.x.y" }
-thread_local = { version = "0.2.6" }
-take_mut = "*"
+thread_local = "0.3.2"
+take_mut = "0.1.3"

@@ -1,4 +1,4 @@
-# slog-extra - Standard [slog-rs] extensions
+# slog-std - Standard [slog-rs] extensions
 
 <p align="center">
   <a href="https://travis-ci.org/slog-rs/std">
