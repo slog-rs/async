@@ -246,7 +246,7 @@ impl<D> From<AsyncBuilder<D>> for AsyncCore
                     };
 
                     from.drain
-                        .log(&Record::new(&rs, format_args!("{}", r.msg), BorrowedKV(&r.kv)),
+                        .log(&Record::new(&rs, &format_args!("{}", r.msg), BorrowedKV(&r.kv)),
                         &r.logger_values)
                         .unwrap();
                 }
@@ -272,7 +272,7 @@ impl Drain for AsyncCore {
         record.kv().serialize(record, &mut ser).expect("`ToSendSerializer` can't fail");
 
         self.send(AsyncRecord {
-            msg: fmt::format(record.msg()),
+            msg: fmt::format(*record.msg()),
             level: record.level(),
             location: record.location(),
             tag : String::from(record.tag()),
@@ -355,7 +355,7 @@ impl Async {
                 &record!(
                     slog::Level::Error,
                     "",
-                    format_args!("dropped messages due to channel overflow"),
+                    &format_args!("dropped messages due to channel overflow"),
                     b!("count" => dropped)
                 ),
                 logger_values) {
