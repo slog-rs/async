@@ -1,23 +1,17 @@
-# slog-std - Standard [slog-rs] extensions
+# slog-async - Asynchronous drain for [slog-rs][slog-rs]
 
 <p align="center">
-  <a href="https://travis-ci.org/slog-rs/std">
-      <img src="https://img.shields.io/travis/slog-rs/std/master.svg" alt="Travis CI Build Status">
+  <a href="https://travis-ci.org/slog-rs/async">
+      <img src="https://img.shields.io/travis/slog-rs/async/master.svg" alt="Travis CI Build Status">
   </a>
 
-  <a href="https://crates.io/crates/slog-std">
-      <img src="https://img.shields.io/crates/d/slog-std.svg" alt="slog-std on crates.io">
+  <a href="https://crates.io/crates/slog-async">
+      <img src="https://img.shields.io/crates/d/slog-async.svg" alt="slog-async on crates.io">
   </a>
 
-  <a href="https://gitter.im/dpc/slog-std">
+  <a href="https://gitter.im/dpc/slog-async">
       <img src="https://img.shields.io/gitter/room/dpc/slog-rs.svg" alt="slog-rs Gitter Chat">
   </a>
 </p>
 
 [slog-rs]: //github.com/slog-rs/core
-
-This crates contains slog-rs extensions that don't belong to the core `slog` crate due to:
-
-* not supporting `no_std`
-* having additional dependencies
-* other problems

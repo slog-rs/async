@@ -1,13 +1,14 @@
 [package]
-name = "slog-std"
+name = "slog-async"
 version = "0.2.0-alpha1"
 authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
-description = "Standard slog-rs extensions"
-keywords = ["slog", "logging", "log"]
+description = "Asynchronous drain for slog-rs"
+keywords = ["slog", "logging", "log", "asynchronous"]
+categories = ["development-tools::debugging"]
 license = "MPL-2.0"
-documentation = "https://docs.rs/slog-std"
+documentation = "https://docs.rs/slog-async"
 homepage = "https://github.com/slog-rs/slog"
-repository = "https://github.com/slog-rs/std"
+repository = "https://github.com/slog-rs/async"
 readme = "README.md"
 
 [lib]
