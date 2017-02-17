@@ -161,20 +161,23 @@ pub type AsyncResult<T> = std::result::Result<T, AsyncError>;
 
 // {{{ AsyncCore
 /// `AsyncCore` builder
-pub struct AsyncBuilder<D>
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+pub struct AsyncBuilder<D, T>
+    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
 {
     chan_size: usize,
     drain: D,
+    _phantom : std::marker::PhantomData<T>,
 }
 
-impl<D> AsyncBuilder<D>
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+impl<D, T> AsyncBuilder<D, T>
+    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
+    T : From<AsyncBuilder<D, T>>
 {
     fn new(drain: D) -> Self {
         AsyncBuilder {
             chan_size: 128,
             drain: drain,
+            _phantom: Default::default(),
         }
     }
 
@@ -186,8 +189,7 @@ impl<D> AsyncBuilder<D>
     }
 
     /// Build `AsyncCore`
-    pub fn build<T>(self) -> T
-    where T : From<AsyncBuilder<D>> {
+    pub fn build(self) -> T {
       self.into()
     }
 }
@@ -212,7 +214,7 @@ impl AsyncCore {
     /// Build `AsyncCore` drain with custom parameters
     pub fn custom<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
         (drain: D)
-         -> AsyncBuilder<D> {
+         -> AsyncBuilder<D, Self> {
         AsyncBuilder::new(drain)
     }
     fn get_sender(&self)
@@ -231,10 +233,11 @@ impl AsyncCore {
     }
 }
 
-impl<D> From<AsyncBuilder<D>> for AsyncCore
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+impl<D, T> From<AsyncBuilder<D, T>> for AsyncCore
+    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
+    T : Send + 'static
 {
-    fn from(from : AsyncBuilder<D>) -> AsyncCore {
+    fn from(from : AsyncBuilder<D, T>) -> AsyncCore {
         let (tx, rx) = mpsc::sync_channel(from.chan_size);
         let join = thread::spawn(move || loop {
             match rx.recv().unwrap() {
@@ -344,7 +347,7 @@ impl Async {
     /// `slog::DrainExt::ignore_res()` for typical error handling strategies.
     pub fn custom<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
         (drain: D)
-         -> AsyncBuilder<D> {
+         -> AsyncBuilder<D, Self> {
         AsyncBuilder::new(drain)
     }
 
@@ -371,10 +374,10 @@ impl Async {
     }
 }
 
-impl<D> From<AsyncBuilder<D>> for Async
+impl<D> From<AsyncBuilder<D, Async>> for Async
     where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
 {
-    fn from(from : AsyncBuilder<D>) -> Async {
+    fn from(from : AsyncBuilder<D, Async>) -> Async {
         Async {
             core: from.into(),
             dropped: AtomicUsize::new(0),
