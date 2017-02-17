@@ -240,7 +240,7 @@ impl<D> From<AsyncBuilder<D>> for AsyncCore
             match rx.recv().unwrap() {
                 AsyncMsg::Record(r) => {
                     let rs = RecordStatic {
-                        location: r.location,
+                        location: &*r.location,
                         level: r.level,
                         tag: &r.tag,
                     };
@@ -274,7 +274,7 @@ impl Drain for AsyncCore {
         self.send(AsyncRecord {
             msg: fmt::format(*record.msg()),
             level: record.level(),
-            location: record.location(),
+            location: Box::new(*record.location()),
             tag : String::from(record.tag()),
             logger_values: logger_values.clone(),
             kv: ser.finish(),
@@ -285,7 +285,7 @@ impl Drain for AsyncCore {
 struct AsyncRecord {
     msg: String,
     level: Level,
-    location: &'static slog::RecordLocation,
+    location: Box<slog::RecordLocation>,
     tag: String,
     logger_values: OwnedKVList,
     kv: Box<KV + Send>,
