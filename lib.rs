@@ -17,19 +17,19 @@ extern crate slog;
 extern crate thread_local;
 extern crate take_mut;
 
-use take_mut::take;
-
-use slog::Drain;
-
-use std::sync::{mpsc, Mutex};
-use std::fmt;
-use std::{io, thread};
 use slog::{Record, RecordStatic, Level, SingleKV, KV, BorrowedKV};
 use slog::{Serializer, OwnedKVList, Key};
+
+use slog::Drain;
+use std::{io, thread};
+use std::error::Error;
+use std::fmt;
 use std::sync;
+
+use std::sync::{mpsc, Mutex};
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
-use std::error::Error;
+use take_mut::take;
 // }}}
 
 // {{{ Serializer
@@ -119,7 +119,10 @@ impl Serializer for ToSendSerializer {
         take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
     }
-    fn emit_arguments(&mut self, key: Key, val: &fmt::Arguments) -> slog::Result {
+    fn emit_arguments(&mut self,
+                      key: Key,
+                      val: &fmt::Arguments)
+                      -> slog::Result {
         let val = fmt::format(*val);
         take(&mut self.kv, |kv| Box::new((SingleKV(key, val), kv)));
         Ok(())
@@ -151,7 +154,8 @@ impl<T> From<std::sync::TryLockError<T>> for AsyncError {
 
 impl<T> From<std::sync::PoisonError<T>> for AsyncError {
     fn from(err: std::sync::PoisonError<T>) -> AsyncError {
-        AsyncError::Fatal(Box::new(io::Error::new(io::ErrorKind::BrokenPipe, err.description())))
+        AsyncError::Fatal(Box::new(io::Error::new(io::ErrorKind::BrokenPipe,
+                                                  err.description())))
     }
 }
 /// `AsyncResult` alias
@@ -162,16 +166,16 @@ pub type AsyncResult<T> = std::result::Result<T, AsyncError>;
 // {{{ AsyncCore
 /// `AsyncCore` builder
 pub struct AsyncBuilder<D, T>
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
+    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
 {
     chan_size: usize,
     drain: D,
-    _phantom : std::marker::PhantomData<T>,
+    _phantom: std::marker::PhantomData<T>,
 }
 
 impl<D, T> AsyncBuilder<D, T>
     where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
-    T : From<AsyncBuilder<D, T>>
+          T: From<AsyncBuilder<D, T>>
 {
     fn new(drain: D) -> Self {
         AsyncBuilder {
@@ -190,7 +194,7 @@ impl<D, T> AsyncBuilder<D, T>
 
     /// Build `AsyncCore`
     pub fn build(self) -> T {
-      self.into()
+        self.into()
     }
 }
 
@@ -207,7 +211,9 @@ pub struct AsyncCore {
 
 impl AsyncCore {
     /// New `AsyncCore` with default parameters
-    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>(drain: D) -> Self {
+    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
+        (drain: D)
+         -> Self {
         AsyncBuilder::new(drain).build()
     }
 
@@ -220,7 +226,8 @@ impl AsyncCore {
     fn get_sender(&self)
                   -> Result<&mpsc::SyncSender<AsyncMsg>,
                             std::sync::PoisonError<sync::MutexGuard<mpsc::SyncSender<AsyncMsg>>>> {
-        self.tl_sender.get_or_try(|| Ok(Box::new(self.ref_sender.lock()?.clone())))
+        self.tl_sender
+            .get_or_try(|| Ok(Box::new(self.ref_sender.lock()?.clone())))
     }
 
     /// Send `AsyncRecord` to a worker thread.
@@ -235,9 +242,9 @@ impl AsyncCore {
 
 impl<D, T> From<AsyncBuilder<D, T>> for AsyncCore
     where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
-    T : Send + 'static
+          T: Send + 'static
 {
-    fn from(from : AsyncBuilder<D, T>) -> AsyncCore {
+    fn from(from: AsyncBuilder<D, T>) -> AsyncCore {
         let (tx, rx) = mpsc::sync_channel(from.chan_size);
         let join = thread::spawn(move || loop {
             match rx.recv().unwrap() {
@@ -249,8 +256,10 @@ impl<D, T> From<AsyncBuilder<D, T>> for AsyncCore
                     };
 
                     from.drain
-                        .log(&Record::new(&rs, &format_args!("{}", r.msg), BorrowedKV(&r.kv)),
-                        &r.logger_values)
+                        .log(&Record::new(&rs,
+                                          &format_args!("{}", r.msg),
+                                          BorrowedKV(&r.kv)),
+                             &r.logger_values)
                         .unwrap();
                 }
                 AsyncMsg::Finish => return,
@@ -269,16 +278,21 @@ impl Drain for AsyncCore {
     type Ok = ();
     type Err = AsyncError;
 
-    fn log(&self, record: &Record, logger_values: &OwnedKVList) -> AsyncResult<()> {
+    fn log(&self,
+           record: &Record,
+           logger_values: &OwnedKVList)
+           -> AsyncResult<()> {
 
         let mut ser = ToSendSerializer::new();
-        record.kv().serialize(record, &mut ser).expect("`ToSendSerializer` can't fail");
+        record.kv()
+            .serialize(record, &mut ser)
+            .expect("`ToSendSerializer` can't fail");
 
         self.send(AsyncRecord {
             msg: fmt::format(*record.msg()),
             level: record.level(),
             location: Box::new(*record.location()),
-            tag : String::from(record.tag()),
+            tag: String::from(record.tag()),
             logger_values: logger_values.clone(),
             kv: ser.finish(),
         })
@@ -330,13 +344,15 @@ impl Drop for AsyncCore {
 /// another thread.
 
 pub struct Async {
-  core : AsyncCore,
-  dropped : AtomicUsize,
+    core: AsyncCore,
+    dropped: AtomicUsize,
 }
 
 impl Async {
     /// New `AsyncCore` with default parameters
-    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>(drain: D) -> Self {
+    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
+        (drain: D)
+         -> Self {
         AsyncBuilder::new(drain).build()
     }
 
@@ -351,22 +367,21 @@ impl Async {
         AsyncBuilder::new(drain)
     }
 
-    fn push_dropped(&self, logger_values : &OwnedKVList) -> AsyncResult<()> {
+    fn push_dropped(&self, logger_values: &OwnedKVList) -> AsyncResult<()> {
         let dropped = self.dropped.swap(0, Ordering::Relaxed);
         if dropped > 0 {
-            match self.core.log(
-                &record!(
-                    slog::Level::Error,
-                    "",
-                    &format_args!("dropped messages due to channel overflow"),
-                    b!("count" => dropped)
-                ),
-                logger_values) {
-                Ok(()) => {},
+            match self.core.log(&record!(slog::Level::Error,
+                                         "",
+                                         &format_args!("dropped messages \
+                                                        due to channel \
+                                                        overflow"),
+                                         b!("count" => dropped)),
+                                logger_values) {
+                Ok(()) => {}
                 Err(AsyncError::Full) => {
                     self.dropped.fetch_add(dropped + 1, Ordering::Relaxed);
-                    return Ok(())
-                },
+                    return Ok(());
+                }
                 Err(e) => return Err(e),
             }
         }
@@ -377,7 +392,7 @@ impl Async {
 impl<D> From<AsyncBuilder<D, Async>> for Async
     where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
 {
-    fn from(from : AsyncBuilder<D, Async>) -> Async {
+    fn from(from: AsyncBuilder<D, Async>) -> Async {
         Async {
             core: from.into(),
             dropped: AtomicUsize::new(0),
@@ -390,16 +405,19 @@ impl Drain for Async {
     type Err = AsyncError;
 
     // TODO: Review `Ordering::Relaxed`
-    fn log(&self, record: &Record, logger_values: &OwnedKVList) -> AsyncResult<()> {
+    fn log(&self,
+           record: &Record,
+           logger_values: &OwnedKVList)
+           -> AsyncResult<()> {
 
         self.push_dropped(logger_values)?;
 
         match self.core.log(record, logger_values) {
-            Ok(()) => {},
+            Ok(()) => {}
             Err(AsyncError::Full) => {
                 self.dropped.fetch_add(1, Ordering::Relaxed);
-                return Ok(())
-            },
+                return Ok(());
+            }
             Err(e) => return Err(e),
         }
 
