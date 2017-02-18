@@ -318,7 +318,7 @@ impl Drop for AsyncCore {
         let _err: Result<(), Box<std::error::Error>> = {
             || {
                 let _ = self.get_sender()?.send(AsyncMsg::Finish);
-                let _ = self.join
+                self.join
                     .lock()?
                     .take()
                     .unwrap()
