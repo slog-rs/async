@@ -202,7 +202,12 @@ impl<D, T> AsyncBuilder<D, T>
 ///
 /// See `Async` for documentation.
 ///
-/// `AsyncCore` allows implementing custom overflow (and other errors) strategy.
+/// Wrapping `AsyncCore` allows implementing custom overflow (and other errors)
+/// handling strategy.
+///
+/// Note: On drop `AsyncCore` waits for it's worker-thread to finish (after handling
+/// all previous `Record`s sent to it). If you can't tolerate the delay, make
+/// sure you drop it eg. in another thread.
 pub struct AsyncCore {
     ref_sender: Mutex<mpsc::SyncSender<AsyncMsg>>,
     tl_sender: thread_local::ThreadLocal<mpsc::SyncSender<AsyncMsg>>,
@@ -337,12 +342,15 @@ impl Drop for AsyncCore {
 
 /// Async drain
 ///
-/// `Async` will send all the logging records to a wrapped drain running in another thread.
-///
-/// Note: Dropping `Async` waits for it's worker-thread to finish (thus handle all previous
-/// requests). If you can't tolerate the delay, make sure you drop `Async` drain instance eg. in
+/// `Async` will send all the logging records to a wrapped drain running in
 /// another thread.
-
+///
+/// On `AsyncError::Full` returned by `AsyncCore` used internally, `Async` will
+/// drop overflowing `Records` and report number of dropped messages.
+///
+/// Note: On drop `Async` waits for it's worker-thread to finish (after handling
+/// all previous `Record`s sent to it). If you can't tolerate the delay, make
+/// sure you drop it eg. in another thread.
 pub struct Async {
     core: AsyncCore,
     dropped: AtomicUsize,
