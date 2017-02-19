@@ -24,6 +24,7 @@ use slog::Drain;
 use std::{io, thread};
 use std::error::Error;
 use std::fmt;
+use std::panic::AssertUnwindSafe;
 use std::sync;
 
 use std::sync::{mpsc, Mutex};
@@ -210,15 +211,17 @@ impl<D, T> AsyncBuilder<D, T>
 /// sure you drop it eg. in another thread.
 pub struct AsyncCore {
     ref_sender: Mutex<mpsc::SyncSender<AsyncMsg>>,
-    tl_sender: thread_local::ThreadLocal<mpsc::SyncSender<AsyncMsg>>,
+    // TODO: Is this required? https://github.com/Amanieu/thread_local-rs/issues/6
+    tl_sender: AssertUnwindSafe<thread_local::ThreadLocal<mpsc::SyncSender<AsyncMsg>>>,
     join: Mutex<Option<thread::JoinHandle<()>>>,
 }
 
 impl AsyncCore {
     /// New `AsyncCore` with default parameters
-    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
-        (drain: D)
-         -> Self {
+    pub fn new<D>(drain: D) -> Self
+        where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
+              D: std::panic::RefUnwindSafe
+    {
         AsyncBuilder::new(drain).build()
     }
 
@@ -273,7 +276,7 @@ impl<D, T> From<AsyncBuilder<D, T>> for AsyncCore
 
         AsyncCore {
             ref_sender: Mutex::new(tx),
-            tl_sender: thread_local::ThreadLocal::new(),
+            tl_sender: AssertUnwindSafe(thread_local::ThreadLocal::new()),
             join: Mutex::new(Some(join)),
         }
     }
