@@ -15,6 +15,6 @@ readme = "README.md"
 path = "lib.rs"
 
 [dependencies]
-slog = { git = "https://github.com/slog-rs/slog", branch="2.x.y" }
+slog = "2.0.0-alpha1"
 thread_local = "0.3.2"
 take_mut = "0.1.3"
