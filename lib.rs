@@ -350,7 +350,7 @@ pub struct Async {
 
 impl Async {
     /// New `AsyncCore` with default parameters
-    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
+    pub fn default<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
         (drain: D)
          -> Self {
         AsyncBuilder::new(drain).build()
@@ -361,7 +361,7 @@ impl Async {
     /// The wrapped drain must handle all results (`Drain<Ok=(),Error=Never>`)
     /// since there's no way to return it back. See `slog::DrainExt::fuse()` and
     /// `slog::DrainExt::ignore_res()` for typical error handling strategies.
-    pub fn custom<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
+    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
         (drain: D)
          -> AsyncBuilder<D, Self> {
         AsyncBuilder::new(drain)
