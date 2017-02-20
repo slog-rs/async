@@ -16,5 +16,5 @@ path = "lib.rs"
 
 [dependencies]
 slog = "2.0.0-alpha1"
-thread_local = "0.3.2"
+thread_local = "0.3.3"
 take_mut = "0.1.3"
