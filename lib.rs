@@ -133,6 +133,7 @@ impl Serializer for ToSendSerializer {
 // {{{ Async
 // {{{ AsyncError
 /// Errors reported by `Async`
+#[derive(Debug)]
 pub enum AsyncError {
     /// Could not send record to worker thread due to full queue
     Full,
