@@ -1,12 +1,13 @@
 // {{{ Crate docs
-//! # Standard slog-rs extensions
+//! # Async drain for slog-rs
 //!
 //! `slog-rs` is an ecosystem of reusable components for structured, extensible,
 //! composable logging for Rust.
 //!
-//! `slog-std` contains functionality that is generic and useful for majority of
-//! `slog-rs` users but not portable enough or for other reasons not suitable to
-//! include in core `slog` crate.
+//! `slog-async` allows building `Drain`s that offload processing to another
+//! thread.  Typically serialization and IO operations can be slow enough that
+//! they could make logging hinder performance of the main code. Sending logging
+//! records to another thread is much faster (ballpark of 100ns).
 // }}}
 
 // {{{ Imports & meta
