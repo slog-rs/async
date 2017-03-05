@@ -167,23 +167,20 @@ pub type AsyncResult<T> = std::result::Result<T, AsyncError>;
 
 // {{{ AsyncCore
 /// `AsyncCore` builder
-pub struct AsyncBuilder<D, T>
+pub struct AsyncCoreBuilder<D>
     where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
 {
     chan_size: usize,
     drain: D,
-    _phantom: std::marker::PhantomData<T>,
 }
 
-impl<D, T> AsyncBuilder<D, T>
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
-          T: From<AsyncBuilder<D, T>>
+impl<D> AsyncCoreBuilder<D>
+    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
 {
     fn new(drain: D) -> Self {
-        AsyncBuilder {
+        AsyncCoreBuilder {
             chan_size: 128,
             drain: drain,
-            _phantom: Default::default(),
         }
     }
 
@@ -195,8 +192,33 @@ impl<D, T> AsyncBuilder<D, T>
     }
 
     /// Build `AsyncCore`
-    pub fn build(self) -> T {
-        self.into()
+    pub fn build(self) -> AsyncCore {
+        let (tx, rx) = mpsc::sync_channel(self.chan_size);
+        let join = thread::spawn(move || loop {
+            match rx.recv().unwrap() {
+                AsyncMsg::Record(r) => {
+                    let rs = RecordStatic {
+                        location: &*r.location,
+                        level: r.level,
+                        tag: &r.tag,
+                    };
+
+                    self.drain
+                        .log(&Record::new(&rs,
+                                          &format_args!("{}", r.msg),
+                                          BorrowedKV(&r.kv)),
+                             &r.logger_values)
+                        .unwrap();
+                }
+                AsyncMsg::Finish => return,
+            }
+        });
+
+        AsyncCore {
+            ref_sender: Mutex::new(tx),
+            tl_sender: thread_local::ThreadLocal::new(),
+            join: Mutex::new(Some(join)),
+        }
     }
 }
 
@@ -222,14 +244,14 @@ impl AsyncCore {
         where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
               D: std::panic::RefUnwindSafe
     {
-        AsyncBuilder::new(drain).build()
+        AsyncCoreBuilder::new(drain).build()
     }
 
     /// Build `AsyncCore` drain with custom parameters
     pub fn custom<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
         (drain: D)
-         -> AsyncBuilder<D, Self> {
-        AsyncBuilder::new(drain)
+         -> AsyncCoreBuilder<D> {
+        AsyncCoreBuilder::new(drain)
     }
     fn get_sender(&self)
                   -> Result<&mpsc::SyncSender<AsyncMsg>,
@@ -245,40 +267,6 @@ impl AsyncCore {
         sender.try_send(AsyncMsg::Record(r))?;
 
         Ok(())
-    }
-}
-
-impl<D, T> From<AsyncBuilder<D, T>> for AsyncCore
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
-          T: Send + 'static
-{
-    fn from(from: AsyncBuilder<D, T>) -> AsyncCore {
-        let (tx, rx) = mpsc::sync_channel(from.chan_size);
-        let join = thread::spawn(move || loop {
-            match rx.recv().unwrap() {
-                AsyncMsg::Record(r) => {
-                    let rs = RecordStatic {
-                        location: &*r.location,
-                        level: r.level,
-                        tag: &r.tag,
-                    };
-
-                    from.drain
-                        .log(&Record::new(&rs,
-                                          &format_args!("{}", r.msg),
-                                          BorrowedKV(&r.kv)),
-                             &r.logger_values)
-                        .unwrap();
-                }
-                AsyncMsg::Finish => return,
-            }
-        });
-
-        AsyncCore {
-            ref_sender: Mutex::new(tx),
-            tl_sender: thread_local::ThreadLocal::new(),
-            join: Mutex::new(Some(join)),
-        }
     }
 }
 
@@ -343,6 +331,35 @@ impl Drop for AsyncCore {
 }
 // }}}
 
+/// `Async` builder
+pub struct AsyncBuilder<D>
+    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+{
+    core: AsyncCoreBuilder<D>,
+}
+
+impl<D> AsyncBuilder<D>
+    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+{
+    fn new(drain: D) -> AsyncBuilder<D> {
+        AsyncBuilder { core: AsyncCoreBuilder::new(drain) }
+    }
+
+    /// Set channel size used to send logging records to worker thread. When
+    /// buffer is full `AsyncCore` will start returning `AsyncError::Full`.
+    pub fn chan_size(self, s: usize) -> Self {
+        AsyncBuilder { core: self.core.chan_size(s) }
+    }
+
+    /// Complete building `Async`
+    pub fn build(self) -> Async {
+        Async {
+            core: self.core.build(),
+            dropped: AtomicUsize::new(0),
+        }
+    }
+}
+
 /// Async drain
 ///
 /// `Async` will send all the logging records to a wrapped drain running in
@@ -374,7 +391,7 @@ impl Async {
     /// `slog::DrainExt::ignore_res()` for typical error handling strategies.
     pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
         (drain: D)
-         -> AsyncBuilder<D, Self> {
+         -> AsyncBuilder<D> {
         AsyncBuilder::new(drain)
     }
 
@@ -397,17 +414,6 @@ impl Async {
             }
         }
         Ok(())
-    }
-}
-
-impl<D> From<AsyncBuilder<D, Async>> for Async
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
-{
-    fn from(from: AsyncBuilder<D, Async>) -> Async {
-        Async {
-            core: from.into(),
-            dropped: AtomicUsize::new(0),
-        }
     }
 }
 
