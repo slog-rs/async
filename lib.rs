@@ -399,7 +399,7 @@ impl Async {
         let dropped = self.dropped.swap(0, Ordering::Relaxed);
         if dropped > 0 {
             match self.core.log(&record!(slog::Level::Error,
-                                         "",
+                                         "slog-async",
                                          &format_args!("dropped messages \
                                                         due to channel \
                                                         overflow"),
