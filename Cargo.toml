@@ -1,6 +1,6 @@
 [package]
 name = "slog-async"
-version = "0.2.0-alpha2"
+version = "0.2.0-alpha.3"
 authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
 description = "Asynchronous drain for slog-rs"
 keywords = ["slog", "logging", "log", "asynchronous"]
@@ -15,6 +15,6 @@ readme = "README.md"
 path = "lib.rs"
 
 [dependencies]
-slog = "2.0.0-alpha2"
+slog = "2.0.0-alpha.3"
 thread_local = "0.3.3"
 take_mut = "0.1.3"
