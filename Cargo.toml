@@ -15,6 +15,6 @@ readme = "README.md"
 path = "lib.rs"
 
 [dependencies]
-slog = "2.0.0-1.0"
+slog = ">= 2.0.0-1, < 2.0.0-2"
 thread_local = "0.3.3"
 take_mut = "0.1.3"
