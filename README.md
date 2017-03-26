@@ -14,4 +14,6 @@
   </a>
 </p>
 
+For more information, help, to report issues etc. See [slog-rs][slog-rs]
+
 [slog-rs]: //github.com/slog-rs/core
