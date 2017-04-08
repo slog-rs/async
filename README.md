@@ -16,4 +16,12 @@
 
 For more information, help, to report issues etc. see [slog-rs][slog-rs].
 
+Note: Unlike other logging solutions `slog-rs` does not have a hardcoded async
+logging implementation. This crate is just a reasonable reference
+implementation. It should have good performance and work well in most use
+cases. See documentation and implementation for more details.
+
+It's relatively easy to implement own `slog-rs` async logging. Feel free to
+use this one as a starting point.
+
 [slog-rs]: //github.com/slog-rs/slog

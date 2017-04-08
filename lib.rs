@@ -8,6 +8,14 @@
 //! thread.  Typically serialization and IO operations can be slow enough that
 //! they could make logging hinder performance of the main code. Sending logging
 //! records to another thread is much faster (ballpark of 100ns).
+//!
+//! Note: Unlike other logging solutions `slog-rs` does not have a hardcoded
+//! async logging implementation. This crate is just a reasonable reference
+//! implementation. It should have good performance and work well in most use
+//! cases. See documentation and implementation for more details.
+//!
+//! It's relatively easy to implement own `slog-rs` async logging. Feel free to
+//! use this one as a starting point.
 // }}}
 
 // {{{ Imports & meta
