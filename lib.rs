@@ -203,24 +203,24 @@ impl<D> AsyncCoreBuilder<D>
     pub fn build(self) -> AsyncCore {
         let (tx, rx) = mpsc::sync_channel(self.chan_size);
         let join = thread::spawn(move || loop {
-            match rx.recv().unwrap() {
-                AsyncMsg::Record(r) => {
-                    let rs = RecordStatic {
-                        location: &*r.location,
-                        level: r.level,
-                        tag: &r.tag,
-                    };
+                                     match rx.recv().unwrap() {
+                                         AsyncMsg::Record(r) => {
+                let rs = RecordStatic {
+                    location: &*r.location,
+                    level: r.level,
+                    tag: &r.tag,
+                };
 
-                    self.drain
-                        .log(&Record::new(&rs,
-                                          &format_args!("{}", r.msg),
-                                          BorrowedKV(&r.kv)),
-                             &r.logger_values)
-                        .unwrap();
-                }
-                AsyncMsg::Finish => return,
+                self.drain
+                    .log(&Record::new(&rs,
+                                      &format_args!("{}", r.msg),
+                                      BorrowedKV(&r.kv)),
+                         &r.logger_values)
+                    .unwrap();
             }
-        });
+                                         AsyncMsg::Finish => return,
+                                     }
+                                 });
 
         AsyncCore {
             ref_sender: Mutex::new(tx),
@@ -237,9 +237,9 @@ impl<D> AsyncCoreBuilder<D>
 /// Wrapping `AsyncCore` allows implementing custom overflow (and other errors)
 /// handling strategy.
 ///
-/// Note: On drop `AsyncCore` waits for it's worker-thread to finish (after handling
-/// all previous `Record`s sent to it). If you can't tolerate the delay, make
-/// sure you drop it eg. in another thread.
+/// Note: On drop `AsyncCore` waits for it's worker-thread to finish (after
+/// handling all previous `Record`s sent to it). If you can't tolerate the
+/// delay, make sure you drop it eg. in another thread.
 pub struct AsyncCore {
     ref_sender: Mutex<mpsc::SyncSender<AsyncMsg>>,
     tl_sender: thread_local::ThreadLocal<mpsc::SyncSender<AsyncMsg>>,
@@ -263,7 +263,7 @@ impl AsyncCore {
     }
     fn get_sender(&self)
                   -> Result<&mpsc::SyncSender<AsyncMsg>,
-                            std::sync::PoisonError<sync::MutexGuard<mpsc::SyncSender<AsyncMsg>>>> {
+std::sync::PoisonError<sync::MutexGuard<mpsc::SyncSender<AsyncMsg>>>>{
         self.tl_sender
             .get_or_try(|| Ok(Box::new(self.ref_sender.lock()?.clone())))
     }
@@ -288,18 +288,19 @@ impl Drain for AsyncCore {
            -> AsyncResult<()> {
 
         let mut ser = ToSendSerializer::new();
-        record.kv()
+        record
+            .kv()
             .serialize(record, &mut ser)
             .expect("`ToSendSerializer` can't fail");
 
         self.send(AsyncRecord {
-            msg: fmt::format(*record.msg()),
-            level: record.level(),
-            location: Box::new(*record.location()),
-            tag: String::from(record.tag()),
-            logger_values: logger_values.clone(),
-            kv: ser.finish(),
-        })
+                      msg: fmt::format(*record.msg()),
+                      level: record.level(),
+                      location: Box::new(*record.location()),
+                      tag: String::from(record.tag()),
+                      logger_values: logger_values.clone(),
+                      kv: ser.finish(),
+                  })
     }
 }
 
@@ -406,13 +407,14 @@ impl Async {
     fn push_dropped(&self, logger_values: &OwnedKVList) -> AsyncResult<()> {
         let dropped = self.dropped.swap(0, Ordering::Relaxed);
         if dropped > 0 {
-            match self.core.log(&record!(slog::Level::Error,
-                                         "slog-async",
-                                         &format_args!("dropped messages \
+            match self.core
+                      .log(&record!(slog::Level::Error,
+                                    "slog-async",
+                                    &format_args!("dropped messages \
                                                         due to channel \
                                                         overflow"),
-                                         b!("count" => dropped)),
-                                logger_values) {
+                                    b!("count" => dropped)),
+                           logger_values) {
                 Ok(()) => {}
                 Err(AsyncError::Full) => {
                     self.dropped.fetch_add(dropped + 1, Ordering::Relaxed);
