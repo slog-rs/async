@@ -374,8 +374,18 @@ impl<D> AsyncBuilder<D>
 /// `Async` will send all the logging records to a wrapped drain running in
 /// another thread.
 ///
-/// On `AsyncError::Full` returned by `AsyncCore` used internally, `Async` will
-/// drop overflowing `Records` and report number of dropped messages.
+/// `Async` never returns `AsyncError::Full`.
+///
+/// `Record`s are passed to the worker thread through a channel with a bounded
+/// size (see `AsyncBuilder::chan_size`). On channel overflow `Async` will
+/// start dropping `Record`s and log a message informing about it after
+/// sending more `Record`s is possible again. The exact details of handling
+/// overflow is implementation defined, might change and should not be relied
+/// on, other than message won't be dropped as long as channel does not
+/// overflow.
+///
+/// Any messages reported by `Async` will contain `slog-async` logging `Record`
+/// tag to allow easy custom handling.
 ///
 /// Note: On drop `Async` waits for it's worker-thread to finish (after handling
 /// all previous `Record`s sent to it). If you can't tolerate the delay, make
@@ -410,7 +420,7 @@ impl Async {
             match self.core
                       .log(&record!(slog::Level::Error,
                                     "slog-async",
-                                    &format_args!("dropped messages \
+                                    &format_args!("slog-async: logger dropped messages \
                                                         due to channel \
                                                         overflow"),
                                     b!("count" => dropped)),
