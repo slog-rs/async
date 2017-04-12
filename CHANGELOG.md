@@ -4,15 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## 2.0.0-3.1  - UNRELEASED
+## 2.0.0-4.0 - 2017-04-11
 
+* Update to slog to stable release
 * Minor improvements around overflow documentation
 
-## 2.0.0-3.0  - 2017-03-25
+## 2.0.0-3.0 - 2017-03-25
 
 * Bump slog version to 2.0.0-3.0
 
-## 2.0.0-2.0  - 2017-03-11
+## 2.0.0-2.0 - 2017-03-11
 
 * Bump slog version to 2.0.0-2.0
 

@@ -21,7 +21,7 @@ logging implementation. This crate is just a reasonable reference
 implementation. It should have good performance and work well in most use
 cases. See documentation and implementation for more details.
 
-It's relatively easy to implement own `slog-rs` async logging. Feel free to
+It's relatively easy to implement custom `slog-rs` async logging. Feel free to
 use this one as a starting point.
 
 [slog-rs]: //github.com/slog-rs/slog
