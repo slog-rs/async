@@ -4,8 +4,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## 2.0.0-4.0 - 2017-04-11
+## 2.0.1 - 2017-04-11
+### Fixed
 
+* Don't reverse the order of key-value pairs
+
+## 2.0.0 - 2017-04-11
+### Changed
 * Update to slog to stable release
 * Minor improvements around overflow documentation
 
