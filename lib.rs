@@ -16,6 +16,32 @@
 //!
 //! It's relatively easy to implement own `slog-rs` async logging. Feel free to
 //! use this one as a starting point.
+//!
+//! ## Beware of `std::process::exit`
+//!
+//! When using `std::process::exit` to terminate a process with an exit code
+//! it is imporant to notice that destructors will not be called. This matters
+//! for `slog_async` as it will **prevents flushing** of the async drain and
+//! **discarding messages** that are not yet written.
+//!
+//! A way around this issue is encapsulate the construction of the logger into
+//! it's own function that returns before `std::process::exit` is called.
+//!
+//! ```
+//! // ...
+//! fn main() {
+//!     let exit_code = run(); // logger gets flushed as `run()` returns.
+//!     std::process::exit(exit_code)
+//! }
+//!
+//! fn run() -> i32 {
+//!    // initialize the logger
+//!
+//!    // ... do your thing ...
+//!
+//!    1 // exit code to return
+//! }
+//! ```
 // }}}
 
 // {{{ Imports & meta
