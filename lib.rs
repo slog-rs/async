@@ -155,10 +155,11 @@ impl Serializer for ToSendSerializer {
         take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
         Ok(())
     }
-    fn emit_arguments(&mut self,
-                      key: Key,
-                      val: &fmt::Arguments)
-                      -> slog::Result {
+    fn emit_arguments(
+        &mut self,
+        key: Key,
+        val: &fmt::Arguments,
+    ) -> slog::Result {
         let val = fmt::format(*val);
         take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
         Ok(())
@@ -191,8 +192,9 @@ impl<T> From<std::sync::TryLockError<T>> for AsyncError {
 
 impl<T> From<std::sync::PoisonError<T>> for AsyncError {
     fn from(err: std::sync::PoisonError<T>) -> AsyncError {
-        AsyncError::Fatal(Box::new(io::Error::new(io::ErrorKind::BrokenPipe,
-                                                  err.description())))
+        AsyncError::Fatal(Box::new(
+            io::Error::new(io::ErrorKind::BrokenPipe, err.description()),
+        ))
     }
 }
 /// `AsyncResult` alias
@@ -203,14 +205,16 @@ pub type AsyncResult<T> = std::result::Result<T, AsyncError>;
 // {{{ AsyncCore
 /// `AsyncCore` builder
 pub struct AsyncCoreBuilder<D>
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+where
+    D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
 {
     chan_size: usize,
     drain: D,
 }
 
 impl<D> AsyncCoreBuilder<D>
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+where
+    D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
 {
     fn new(drain: D) -> Self {
         AsyncCoreBuilder {
@@ -230,24 +234,28 @@ impl<D> AsyncCoreBuilder<D>
     pub fn build(self) -> AsyncCore {
         let (tx, rx) = mpsc::sync_channel(self.chan_size);
         let join = thread::spawn(move || loop {
-                                     match rx.recv().unwrap() {
-                                         AsyncMsg::Record(r) => {
-                let rs = RecordStatic {
-                    location: &*r.location,
-                    level: r.level,
-                    tag: &r.tag,
-                };
+            match rx.recv().unwrap() {
+                AsyncMsg::Record(r) => {
+                    let rs = RecordStatic {
+                        location: &*r.location,
+                        level: r.level,
+                        tag: &r.tag,
+                    };
 
-                self.drain
-                    .log(&Record::new(&rs,
-                                      &format_args!("{}", r.msg),
-                                      BorrowedKV(&r.kv)),
-                         &r.logger_values)
-                    .unwrap();
+                    self.drain
+                        .log(
+                            &Record::new(
+                                &rs,
+                                &format_args!("{}", r.msg),
+                                BorrowedKV(&r.kv),
+                            ),
+                            &r.logger_values,
+                        )
+                        .unwrap();
+                }
+                AsyncMsg::Finish => return,
             }
-                                         AsyncMsg::Finish => return,
-                                     }
-                                 });
+        });
 
         AsyncCore {
             ref_sender: Mutex::new(tx),
@@ -276,21 +284,27 @@ pub struct AsyncCore {
 impl AsyncCore {
     /// New `AsyncCore` with default parameters
     pub fn new<D>(drain: D) -> Self
-        where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
-              D: std::panic::RefUnwindSafe
+    where
+        D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
+        D: std::panic::RefUnwindSafe,
     {
         AsyncCoreBuilder::new(drain).build()
     }
 
     /// Build `AsyncCore` drain with custom parameters
-    pub fn custom<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
-        (drain: D)
-         -> AsyncCoreBuilder<D> {
+    pub fn custom<
+        D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
+    >(
+        drain: D,
+    ) -> AsyncCoreBuilder<D> {
         AsyncCoreBuilder::new(drain)
     }
-    fn get_sender(&self)
-                  -> Result<&mpsc::SyncSender<AsyncMsg>,
-std::sync::PoisonError<sync::MutexGuard<mpsc::SyncSender<AsyncMsg>>>>{
+    fn get_sender(
+        &self,
+    ) -> Result<
+        &mpsc::SyncSender<AsyncMsg>,
+        std::sync::PoisonError<sync::MutexGuard<mpsc::SyncSender<AsyncMsg>>>,
+    > {
         self.tl_sender
             .get_or_try(|| Ok(Box::new(self.ref_sender.lock()?.clone())))
     }
@@ -309,10 +323,11 @@ impl Drain for AsyncCore {
     type Ok = ();
     type Err = AsyncError;
 
-    fn log(&self,
-           record: &Record,
-           logger_values: &OwnedKVList)
-           -> AsyncResult<()> {
+    fn log(
+        &self,
+        record: &Record,
+        logger_values: &OwnedKVList,
+    ) -> AsyncResult<()> {
 
         let mut ser = ToSendSerializer::new();
         record
@@ -321,13 +336,13 @@ impl Drain for AsyncCore {
             .expect("`ToSendSerializer` can't fail");
 
         self.send(AsyncRecord {
-                      msg: fmt::format(*record.msg()),
-                      level: record.level(),
-                      location: Box::new(*record.location()),
-                      tag: String::from(record.tag()),
-                      logger_values: logger_values.clone(),
-                      kv: ser.finish(),
-                  })
+            msg: fmt::format(*record.msg()),
+            level: record.level(),
+            location: Box::new(*record.location()),
+            tag: String::from(record.tag()),
+            logger_values: logger_values.clone(),
+            kv: ser.finish(),
+        })
     }
 }
 
@@ -350,15 +365,12 @@ impl Drop for AsyncCore {
         let _err: Result<(), Box<std::error::Error>> = {
             || {
                 let _ = self.get_sender()?.send(AsyncMsg::Finish);
-                self.join
-                    .lock()?
-                    .take()
-                    .unwrap()
-                    .join()
-                    .map_err(|_| {
-                        io::Error::new(io::ErrorKind::BrokenPipe,
-                                       "Logging thread worker join error")
-                    })?;
+                self.join.lock()?.take().unwrap().join().map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        "Logging thread worker join error",
+                    )
+                })?;
 
                 Ok(())
             }
@@ -369,22 +381,28 @@ impl Drop for AsyncCore {
 
 /// `Async` builder
 pub struct AsyncBuilder<D>
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+where
+    D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
 {
     core: AsyncCoreBuilder<D>,
 }
 
 impl<D> AsyncBuilder<D>
-    where D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static
+where
+    D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
 {
     fn new(drain: D) -> AsyncBuilder<D> {
-        AsyncBuilder { core: AsyncCoreBuilder::new(drain) }
+        AsyncBuilder {
+            core: AsyncCoreBuilder::new(drain),
+        }
     }
 
     /// Set channel size used to send logging records to worker thread. When
     /// buffer is full `AsyncCore` will start returning `AsyncError::Full`.
     pub fn chan_size(self, s: usize) -> Self {
-        AsyncBuilder { core: self.core.chan_size(s) }
+        AsyncBuilder {
+            core: self.core.chan_size(s),
+        }
     }
 
     /// Complete building `Async`
@@ -424,9 +442,11 @@ pub struct Async {
 
 impl Async {
     /// New `AsyncCore` with default parameters
-    pub fn default<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
-        (drain: D)
-         -> Self {
+    pub fn default<
+        D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
+    >(
+        drain: D,
+    ) -> Self {
         AsyncBuilder::new(drain).build()
     }
 
@@ -435,23 +455,28 @@ impl Async {
     /// The wrapped drain must handle all results (`Drain<Ok=(),Error=Never>`)
     /// since there's no way to return it back. See `slog::DrainExt::fuse()` and
     /// `slog::DrainExt::ignore_res()` for typical error handling strategies.
-    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>
-        (drain: D)
-         -> AsyncBuilder<D> {
+    pub fn new<D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static>(
+        drain: D,
+    ) -> AsyncBuilder<D> {
         AsyncBuilder::new(drain)
     }
 
     fn push_dropped(&self, logger_values: &OwnedKVList) -> AsyncResult<()> {
         let dropped = self.dropped.swap(0, Ordering::Relaxed);
         if dropped > 0 {
-            match self.core
-                      .log(&record!(slog::Level::Error,
-                                    "slog-async",
-                                    &format_args!("slog-async: logger dropped messages \
-                                                        due to channel \
-                                                        overflow"),
-                                    b!("count" => dropped)),
-                           logger_values) {
+            match self.core.log(
+                &record!(
+                    slog::Level::Error,
+                    "slog-async",
+                    &format_args!(
+                        "slog-async: logger dropped messages \
+                         due to channel \
+                         overflow"
+                    ),
+                    b!("count" => dropped)
+                ),
+                logger_values,
+            ) {
                 Ok(()) => {}
                 Err(AsyncError::Full) => {
                     self.dropped.fetch_add(dropped + 1, Ordering::Relaxed);
@@ -469,10 +494,11 @@ impl Drain for Async {
     type Err = AsyncError;
 
     // TODO: Review `Ordering::Relaxed`
-    fn log(&self,
-           record: &Record,
-           logger_values: &OwnedKVList)
-           -> AsyncResult<()> {
+    fn log(
+        &self,
+        record: &Record,
+        logger_values: &OwnedKVList,
+    ) -> AsyncResult<()> {
 
         self.push_dropped(logger_values)?;
 
