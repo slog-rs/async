@@ -230,8 +230,9 @@ where
         self
     }
 
-    /// Build `AsyncCore`
-    pub fn build(self) -> AsyncCore {
+    fn spawn_thread(
+        self,
+    ) -> (thread::JoinHandle<()>, mpsc::SyncSender<AsyncMsg>) {
         let (tx, rx) = mpsc::sync_channel(self.chan_size);
         let join = thread::spawn(move || loop {
             match rx.recv().unwrap() {
@@ -257,11 +258,81 @@ where
             }
         });
 
+        (join, tx)
+    }
+
+    /// Build `AsyncCore`
+    pub fn build(self) -> AsyncCore {
+        self.build_no_guard()
+    }
+
+    /// Build `AsyncCore`
+    pub fn build_no_guard(self) -> AsyncCore {
+        let (join, tx) = self.spawn_thread();
+
         AsyncCore {
             ref_sender: Mutex::new(tx),
             tl_sender: thread_local::ThreadLocal::new(),
             join: Mutex::new(Some(join)),
         }
+    }
+
+    /// Build `AsyncCore` with `AsyncGuard`
+    ///
+    /// See `AsyncGuard` for more information.
+    pub fn build_with_guard(self) -> (AsyncCore, AsyncGuard) {
+        let (join, tx) = self.spawn_thread();
+
+        (
+            AsyncCore {
+                ref_sender: Mutex::new(tx.clone()),
+                tl_sender: thread_local::ThreadLocal::new(),
+                join: Mutex::new(None),
+            },
+            AsyncGuard {
+                join: Some(join),
+                tx: tx,
+            },
+        )
+    }
+}
+
+/// Async guard
+///
+/// All `Drain`s are reference-counted by every `Logger` that uses them.
+/// `Async` drain runs a worker thread and sends a termination (and flushing)
+/// message only when being `drop`ed. Because of that it's actually
+/// quite easy to have a left-over reference to a `Async` drain, when
+/// terminating: especially on `panic`s or similar unwinding event. Typically
+/// it's caused be a leftover reference like `Logger` in thread-local variable,
+/// global variable, or a thread that is not being joined on. It might be a
+/// program bug, but logging should work reliably especially in case of bugs.
+///
+/// `AsyncGuard` is a remedy: it will send a flush and termination message to
+/// a `Async` worker thread, and wait for it to finish on it's own `drop`. Using it
+/// is a simplest way to guarantee log flushing when using `slog_async`.
+pub struct AsyncGuard {
+    // Should always be `Some`. `None` only
+    // after `drop`
+    join: Option<thread::JoinHandle<()>>,
+    tx: mpsc::SyncSender<AsyncMsg>,
+}
+
+impl Drop for AsyncGuard {
+    fn drop(&mut self) {
+        let _err: Result<(), Box<std::error::Error>> = {
+            || {
+                let _ = self.tx.send(AsyncMsg::Finish);
+                self.join.take().unwrap().join().map_err(|_| {
+                    io::Error::new(
+                        io::ErrorKind::BrokenPipe,
+                        "Logging thread worker join error",
+                    )
+                })?;
+
+                Ok(())
+            }
+        }();
     }
 }
 
@@ -364,14 +435,16 @@ impl Drop for AsyncCore {
     fn drop(&mut self) {
         let _err: Result<(), Box<std::error::Error>> = {
             || {
-                let _ = self.get_sender()?.send(AsyncMsg::Finish);
-                self.join.lock()?.take().unwrap().join().map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        "Logging thread worker join error",
-                    )
-                })?;
+                if let Some(join) = self.join.lock()?.take() {
+                    let _ = self.get_sender()?.send(AsyncMsg::Finish);
+                    join.join().map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::BrokenPipe,
+                            "Logging thread worker join error",
+                        )
+                    })?;
 
+                }
                 Ok(())
             }
         }();
@@ -408,9 +481,31 @@ where
     /// Complete building `Async`
     pub fn build(self) -> Async {
         Async {
-            core: self.core.build(),
+            core: self.core.build_no_guard(),
             dropped: AtomicUsize::new(0),
         }
+    }
+
+    /// Complete building `Async`
+    pub fn build_no_guard(self) -> Async {
+        Async {
+            core: self.core.build_no_guard(),
+            dropped: AtomicUsize::new(0),
+        }
+    }
+
+    /// Complete building `Async` with `AsyncGuard`
+    ///
+    /// See `AsyncGuard` for more information.
+    pub fn build_with_guard(self) -> (Async, AsyncGuard) {
+        let (core, guard) = self.core.build_with_guard();
+        (
+            Async {
+                core: core,
+                dropped: AtomicUsize::new(0),
+            },
+            guard,
+        )
     }
 }
 
