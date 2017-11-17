@@ -5,27 +5,27 @@
 //! composable logging for Rust.
 //!
 //! `slog-async` allows building `Drain`s that offload processing to another
-//! thread.  Typically serialization and IO operations can be slow enough that
-//! they could make logging hinder performance of the main code. Sending logging
+//! thread.  Typically, serialization and IO operations are slow enough that
+//! they make logging hinder the performance of the main code. Sending log
 //! records to another thread is much faster (ballpark of 100ns).
 //!
-//! Note: Unlike other logging solutions `slog-rs` does not have a hardcoded
+//! Note: Unlike other logging solutions, `slog-rs` does not have a hardcoded
 //! async logging implementation. This crate is just a reasonable reference
 //! implementation. It should have good performance and work well in most use
-//! cases. See documentation and implementation for more details.
+//! cases. See the documentation and implementation for more details.
 //!
-//! It's relatively easy to implement own `slog-rs` async logging. Feel free to
-//! use this one as a starting point.
+//! It's relatively easy to implement your own `slog-rs` async logging. Feel
+//! free to use this one as a starting point.
 //!
 //! ## Beware of `std::process::exit`
 //!
-//! When using `std::process::exit` to terminate a process with an exit code
-//! it is imporant to notice that destructors will not be called. This matters
-//! for `slog_async` as it will **prevents flushing** of the async drain and
-//! **discarding messages** that are not yet written.
+//! When using `std::process::exit` to terminate a process with an exit code,
+//! it is important to notice that destructors will not be called. This matters
+//! for `slog_async` as it **prevents flushing** of the async drain and
+//! **discards messages** that are not yet written.
 //!
 //! A way around this issue is encapsulate the construction of the logger into
-//! it's own function that returns before `std::process::exit` is called.
+//! its own function that returns before `std::process::exit` is called.
 //!
 //! ```
 //! // ...
