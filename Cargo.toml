@@ -20,7 +20,7 @@ default = []
 path = "lib.rs"
 
 [dependencies]
-slog = "2"
+slog = "2.1"
 thread_local = "0.3.3"
 take_mut = "0.1.3"
 
