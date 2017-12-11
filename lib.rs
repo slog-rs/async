@@ -164,6 +164,13 @@ impl Serializer for ToSendSerializer {
         take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
         Ok(())
     }
+
+    #[cfg(feature = "nested-values")]
+    fn emit_serde(&mut self, key: Key, value: &slog::SerdeValue) -> slog::Result {
+        let val = value.to_sendable();
+        take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
+        Ok(())
+    }
 }
 // }}}
 

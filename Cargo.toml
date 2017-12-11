@@ -11,6 +11,11 @@ homepage = "https://github.com/slog-rs/slog"
 repository = "https://github.com/slog-rs/async"
 readme = "README.md"
 
+[features]
+nested-values = ["slog/nested-values"]
+dynamic-keys = ["slog/dynamic-keys"]
+default = []
+
 [lib]
 path = "lib.rs"
 
@@ -18,3 +23,6 @@ path = "lib.rs"
 slog = "2"
 thread_local = "0.3.3"
 take_mut = "0.1.3"
+
+[package.metadata.docs.rs]
+features = ["nested-values", "dynamic-keys"]
