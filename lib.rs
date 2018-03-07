@@ -217,6 +217,7 @@ where
 {
     chan_size: usize,
     drain: D,
+    thread_name: Option<String>,
 }
 
 impl<D> AsyncCoreBuilder<D>
@@ -227,7 +228,21 @@ where
         AsyncCoreBuilder {
             chan_size: 128,
             drain: drain,
+            thread_name: None,
         }
+    }
+
+    /// Configure a name to be used for the background thread.
+    ///
+    /// The name must not contain '\0'.
+    ///
+    /// # Panics
+    ///
+    /// If a name with '\0' is passed.
+    pub fn thread_name(mut self, name: String) -> Self {
+        assert!(name.find('\0').is_none(), "Name with \\'0\\' in it passed");
+        self.thread_name = Some(name);
+        self
     }
 
     /// Set channel size used to send logging records to worker thread. When
@@ -241,7 +256,12 @@ where
         self,
     ) -> (thread::JoinHandle<()>, mpsc::SyncSender<AsyncMsg>) {
         let (tx, rx) = mpsc::sync_channel(self.chan_size);
-        let join = thread::spawn(move || loop {
+        let mut builder = thread::Builder::new();
+        if let Some(thread_name) = self.thread_name {
+            builder = builder.name(thread_name);
+        }
+        let drain = self.drain;
+        let join = builder.spawn(move || loop {
             match rx.recv().unwrap() {
                 AsyncMsg::Record(r) => {
                     let rs = RecordStatic {
@@ -250,7 +270,7 @@ where
                         tag: &r.tag,
                     };
 
-                    self.drain
+                    drain
                         .log(
                             &Record::new(
                                 &rs,
@@ -263,7 +283,7 @@ where
                 }
                 AsyncMsg::Finish => return,
             }
-        });
+        }).unwrap();
 
         (join, tx)
     }
@@ -482,6 +502,19 @@ where
     pub fn chan_size(self, s: usize) -> Self {
         AsyncBuilder {
             core: self.core.chan_size(s),
+        }
+    }
+
+    /// Configure a name to be used for the background thread.
+    ///
+    /// The name must not contain '\0'.
+    ///
+    /// # Panics
+    ///
+    /// If a name with '\0' is passed.
+    pub fn thread_name(self, name: String) -> Self {
+        AsyncBuilder {
+            core: self.core.thread_name(name)
         }
     }
 

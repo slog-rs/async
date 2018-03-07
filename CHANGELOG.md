@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## Unreleased
+
+* Configurable name of the background thread.
+
 ## 2.2.0 - 2017-07-23
 
 * Experimental support for `nested-values` and `dynamic-keys`. **Note**:
