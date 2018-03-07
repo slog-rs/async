@@ -256,7 +256,7 @@ where
         self,
     ) -> (thread::JoinHandle<()>, mpsc::SyncSender<AsyncMsg>) {
         let (tx, rx) = mpsc::sync_channel(self.chan_size);
-        let mut builder = thread::Builder::new();;
+        let mut builder = thread::Builder::new();
         if let Some(thread_name) = self.thread_name {
             builder = builder.name(thread_name);
         }
