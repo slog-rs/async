@@ -89,8 +89,7 @@ impl Serializer for ToSendSerializer {
         Ok(())
     }
     fn emit_unit(&mut self, key: Key) -> slog::Result {
-        let val = ();
-        take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
+        take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, ()))));
         Ok(())
     }
     fn emit_none(&mut self, key: Key) -> slog::Result {
@@ -236,7 +235,7 @@ where
         AsyncCoreBuilder {
             chan_size: 128,
             blocking: false,
-            drain: drain,
+            drain,
             thread_name: None,
         }
     }
@@ -340,7 +339,7 @@ where
             },
             AsyncGuard {
                 join: Some(join),
-                tx: tx,
+                tx,
             },
         )
     }
@@ -612,7 +611,7 @@ where
         let (core, guard) = self.core.build_with_guard();
         (
             Async {
-                core: core,
+                core,
                 dropped: AtomicUsize::new(0),
                 inc_dropped: self.inc_dropped,
             },
