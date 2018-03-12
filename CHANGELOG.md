@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## Unreleased
 
+* Configurable overflow strategy (can now block or drop the messages silently).
 * Configurable name of the background thread.
 
 ## 2.2.0 - 2017-07-23

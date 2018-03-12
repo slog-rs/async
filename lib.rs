@@ -89,8 +89,7 @@ impl Serializer for ToSendSerializer {
         Ok(())
     }
     fn emit_unit(&mut self, key: Key) -> slog::Result {
-        let val = ();
-        take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
+        take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, ()))));
         Ok(())
     }
     fn emit_none(&mut self, key: Key) -> slog::Result {
@@ -196,6 +195,13 @@ impl<T> From<std::sync::TryLockError<T>> for AsyncError {
     }
 }
 
+impl<T> From<mpsc::SendError<T>> for AsyncError {
+    fn from(_: mpsc::SendError<T>) -> AsyncError {
+        AsyncError::Fatal(Box::new(
+            io::Error::new(io::ErrorKind::BrokenPipe, "The logger thread terminated"),
+        ))
+    }
+}
 
 impl<T> From<std::sync::PoisonError<T>> for AsyncError {
     fn from(err: std::sync::PoisonError<T>) -> AsyncError {
@@ -216,6 +222,7 @@ where
     D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
 {
     chan_size: usize,
+    blocking: bool,
     drain: D,
     thread_name: Option<String>,
 }
@@ -227,7 +234,8 @@ where
     fn new(drain: D) -> Self {
         AsyncCoreBuilder {
             chan_size: 128,
-            drain: drain,
+            blocking: false,
+            drain,
             thread_name: None,
         }
     }
@@ -246,9 +254,18 @@ where
     }
 
     /// Set channel size used to send logging records to worker thread. When
-    /// buffer is full `AsyncCore` will start returning `AsyncError::Full`.
+    /// buffer is full `AsyncCore` will start returning `AsyncError::Full` or block, depending on
+    /// the `blocking` configuration.
     pub fn chan_size(mut self, s: usize) -> Self {
         self.chan_size = s;
+        self
+    }
+
+    /// Should the logging call be blocking if the channel is full?
+    ///
+    /// Default is false, in which case it'll return `AsyncError::Full`.
+    pub fn blocking(mut self, blocking: bool) -> Self {
+        self.blocking = blocking;
         self
     }
 
@@ -295,12 +312,14 @@ where
 
     /// Build `AsyncCore`
     pub fn build_no_guard(self) -> AsyncCore {
+        let blocking = self.blocking;
         let (join, tx) = self.spawn_thread();
 
         AsyncCore {
             ref_sender: Mutex::new(tx),
             tl_sender: thread_local::ThreadLocal::new(),
             join: Mutex::new(Some(join)),
+            blocking,
         }
     }
 
@@ -308,6 +327,7 @@ where
     ///
     /// See `AsyncGuard` for more information.
     pub fn build_with_guard(self) -> (AsyncCore, AsyncGuard) {
+        let blocking = self.blocking;
         let (join, tx) = self.spawn_thread();
 
         (
@@ -315,10 +335,11 @@ where
                 ref_sender: Mutex::new(tx.clone()),
                 tl_sender: thread_local::ThreadLocal::new(),
                 join: Mutex::new(None),
+                blocking,
             },
             AsyncGuard {
                 join: Some(join),
-                tx: tx,
+                tx,
             },
         )
     }
@@ -377,6 +398,7 @@ pub struct AsyncCore {
     ref_sender: Mutex<mpsc::SyncSender<AsyncMsg>>,
     tl_sender: thread_local::ThreadLocal<mpsc::SyncSender<AsyncMsg>>,
     join: Mutex<Option<thread::JoinHandle<()>>>,
+    blocking: bool,
 }
 
 impl AsyncCore {
@@ -411,7 +433,11 @@ impl AsyncCore {
     fn send(&self, r: AsyncRecord) -> AsyncResult<()> {
         let sender = self.get_sender()?;
 
-        sender.try_send(AsyncMsg::Record(r))?;
+        if self.blocking {
+            sender.send(AsyncMsg::Record(r))?;
+        } else {
+            sender.try_send(AsyncMsg::Record(r))?;
+        }
 
         Ok(())
     }
@@ -479,12 +505,37 @@ impl Drop for AsyncCore {
 }
 // }}}
 
+/// Behavior used when the channel is full.
+///
+/// # Note
+///
+/// More variants may be added in the future, without considering it a breaking change.
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Ord, PartialOrd)]
+pub enum OverflowStrategy {
+    /// The message gets dropped and a message with number of dropped is produced once there's
+    /// space.
+    ///
+    /// This is the default.
+    ///
+    /// Note that the message with number of dropped messages takes one slot in the channel as
+    /// well.
+    DropAndReport,
+    /// The message gets dropped silently.
+    Drop,
+    /// The caller is blocked until there's enough space.
+    Block,
+    #[doc(hidden)]
+    DoNotMatchAgainstThisAndReadTheDocs,
+}
+
 /// `Async` builder
 pub struct AsyncBuilder<D>
 where
     D: slog::Drain<Err = slog::Never, Ok = ()> + Send + 'static,
 {
     core: AsyncCoreBuilder<D>,
+    // Increment a counter whenever a message is dropped due to not fitting inside the channel.
+    inc_dropped: bool,
 }
 
 impl<D> AsyncBuilder<D>
@@ -494,6 +545,7 @@ where
     fn new(drain: D) -> AsyncBuilder<D> {
         AsyncBuilder {
             core: AsyncCoreBuilder::new(drain),
+            inc_dropped: true,
         }
     }
 
@@ -502,6 +554,21 @@ where
     pub fn chan_size(self, s: usize) -> Self {
         AsyncBuilder {
             core: self.core.chan_size(s),
+            .. self
+        }
+    }
+
+    /// Sets what will happen if the channel is full.
+    pub fn overflow_strategy(self, overflow_strategy: OverflowStrategy) -> Self {
+        let (block, inc) = match overflow_strategy {
+            OverflowStrategy::Block => (true, false),
+            OverflowStrategy::Drop => (false, false),
+            OverflowStrategy::DropAndReport => (false, true),
+            OverflowStrategy::DoNotMatchAgainstThisAndReadTheDocs => panic!("Invalid variant"),
+        };
+        AsyncBuilder {
+            core: self.core.blocking(block),
+            inc_dropped: inc,
         }
     }
 
@@ -514,7 +581,8 @@ where
     /// If a name with '\0' is passed.
     pub fn thread_name(self, name: String) -> Self {
         AsyncBuilder {
-            core: self.core.thread_name(name)
+            core: self.core.thread_name(name),
+            .. self
         }
     }
 
@@ -523,6 +591,7 @@ where
         Async {
             core: self.core.build_no_guard(),
             dropped: AtomicUsize::new(0),
+            inc_dropped: self.inc_dropped,
         }
     }
 
@@ -531,6 +600,7 @@ where
         Async {
             core: self.core.build_no_guard(),
             dropped: AtomicUsize::new(0),
+            inc_dropped: self.inc_dropped,
         }
     }
 
@@ -541,8 +611,9 @@ where
         let (core, guard) = self.core.build_with_guard();
         (
             Async {
-                core: core,
+                core,
                 dropped: AtomicUsize::new(0),
+                inc_dropped: self.inc_dropped,
             },
             guard,
         )
@@ -573,6 +644,8 @@ where
 pub struct Async {
     core: AsyncCore,
     dropped: AtomicUsize,
+    // Increment the dropped counter if dropped?
+    inc_dropped: bool,
 }
 
 impl Async {
@@ -639,10 +712,10 @@ impl Drain for Async {
 
         match self.core.log(record, logger_values) {
             Ok(()) => {}
-            Err(AsyncError::Full) => {
+            Err(AsyncError::Full) if self.inc_dropped => {
                 self.dropped.fetch_add(1, Ordering::Relaxed);
-                return Ok(());
-            }
+            },
+            Err(AsyncError::Full) => {},
             Err(e) => return Err(e),
         }
 
