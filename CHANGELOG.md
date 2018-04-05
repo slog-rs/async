@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## Unreleased
+## 2.3.0 - 2018-04-04
 
 * Configurable overflow strategy (can now block or drop the messages silently).
 * Configurable name of the background thread.
