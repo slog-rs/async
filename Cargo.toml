@@ -26,3 +26,6 @@ take_mut = "0.2.0"
 
 [package.metadata.docs.rs]
 features = ["nested-values", "dynamic-keys"]
+
+[patch.crates-io]
+slog = { git = "https://github.com/jacekchmiel/slog", branch = "log-0.4-support" }
