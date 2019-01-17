@@ -52,6 +52,9 @@
 extern crate slog;
 extern crate thread_local;
 extern crate take_mut;
+extern crate crossbeam_channel;
+
+use crossbeam_channel::Sender;
 
 use slog::{Record, RecordStatic, Level, SingleKV, KV, BorrowedKV};
 use slog::{Serializer, OwnedKVList, Key};
@@ -62,7 +65,7 @@ use std::error::Error;
 use std::fmt;
 use std::sync;
 
-use std::sync::{mpsc, Mutex};
+use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use take_mut::take;
@@ -184,19 +187,14 @@ pub enum AsyncError {
     Fatal(Box<std::error::Error>),
 }
 
-impl<T> From<mpsc::TrySendError<T>> for AsyncError {
-    fn from(_: mpsc::TrySendError<T>) -> AsyncError {
-        AsyncError::Full
-    }
-}
-impl<T> From<std::sync::TryLockError<T>> for AsyncError {
-    fn from(_: std::sync::TryLockError<T>) -> AsyncError {
+impl<T> From<crossbeam_channel::TrySendError<T>> for AsyncError {
+    fn from(_: crossbeam_channel::TrySendError<T>) -> AsyncError {
         AsyncError::Full
     }
 }
 
-impl<T> From<mpsc::SendError<T>> for AsyncError {
-    fn from(_: mpsc::SendError<T>) -> AsyncError {
+impl<T> From<crossbeam_channel::SendError<T>> for AsyncError {
+    fn from(_: crossbeam_channel::SendError<T>) -> AsyncError {
         AsyncError::Fatal(Box::new(
             io::Error::new(io::ErrorKind::BrokenPipe, "The logger thread terminated"),
         ))
@@ -210,6 +208,7 @@ impl<T> From<std::sync::PoisonError<T>> for AsyncError {
         ))
     }
 }
+
 /// `AsyncResult` alias
 pub type AsyncResult<T> = std::result::Result<T, AsyncError>;
 
@@ -271,8 +270,8 @@ where
 
     fn spawn_thread(
         self,
-    ) -> (thread::JoinHandle<()>, mpsc::SyncSender<AsyncMsg>) {
-        let (tx, rx) = mpsc::sync_channel(self.chan_size);
+    ) -> (thread::JoinHandle<()>, Sender<AsyncMsg>) {
+        let (tx, rx) = crossbeam_channel::bounded(self.chan_size);
         let mut builder = thread::Builder::new();
         if let Some(thread_name) = self.thread_name {
             builder = builder.name(thread_name);
@@ -316,7 +315,7 @@ where
         let (join, tx) = self.spawn_thread();
 
         AsyncCore {
-            ref_sender: Mutex::new(tx),
+            ref_sender: tx,
             tl_sender: thread_local::ThreadLocal::new(),
             join: Mutex::new(Some(join)),
             blocking,
@@ -332,7 +331,7 @@ where
 
         (
             AsyncCore {
-                ref_sender: Mutex::new(tx.clone()),
+                ref_sender: tx.clone(),
                 tl_sender: thread_local::ThreadLocal::new(),
                 join: Mutex::new(None),
                 blocking,
@@ -363,7 +362,7 @@ pub struct AsyncGuard {
     // Should always be `Some`. `None` only
     // after `drop`
     join: Option<thread::JoinHandle<()>>,
-    tx: mpsc::SyncSender<AsyncMsg>,
+    tx: Sender<AsyncMsg>,
 }
 
 impl Drop for AsyncGuard {
@@ -395,8 +394,8 @@ impl Drop for AsyncGuard {
 /// handling all previous `Record`s sent to it). If you can't tolerate the
 /// delay, make sure you drop it eg. in another thread.
 pub struct AsyncCore {
-    ref_sender: Mutex<mpsc::SyncSender<AsyncMsg>>,
-    tl_sender: thread_local::ThreadLocal<mpsc::SyncSender<AsyncMsg>>,
+    ref_sender: Sender<AsyncMsg>,
+    tl_sender: thread_local::ThreadLocal<Sender<AsyncMsg>>,
     join: Mutex<Option<thread::JoinHandle<()>>>,
     blocking: bool,
 }
@@ -422,11 +421,11 @@ impl AsyncCore {
     fn get_sender(
         &self,
     ) -> Result<
-        &mpsc::SyncSender<AsyncMsg>,
-        std::sync::PoisonError<sync::MutexGuard<mpsc::SyncSender<AsyncMsg>>>,
+        &crossbeam_channel::Sender<AsyncMsg>,
+        std::sync::PoisonError<sync::MutexGuard<crossbeam_channel::Sender<AsyncMsg>>>,
     > {
         self.tl_sender
-            .get_or_try(|| Ok(Box::new(self.ref_sender.lock()?.clone())))
+            .get_or_try(|| Ok(Box::new(self.ref_sender.clone())))
     }
 
     /// Send `AsyncRecord` to a worker thread.
