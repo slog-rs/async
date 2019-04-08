@@ -370,13 +370,16 @@ impl Drop for AsyncGuard {
         let _err: Result<(), Box<std::error::Error>> = {
             || {
                 let _ = self.tx.send(AsyncMsg::Finish);
-                self.join.take().unwrap().join().map_err(|_| {
-                    io::Error::new(
-                        io::ErrorKind::BrokenPipe,
-                        "Logging thread worker join error",
-                    )
-                })?;
-
+                let join = self.join.take().unwrap();
+                if join.thread().id() != thread::current().id() {
+                    // See AsyncCore::drop for rationale of this branch.
+                    join.join().map_err(|_| {
+                        io::Error::new(
+                            io::ErrorKind::BrokenPipe,
+                            "Logging thread worker join error",
+                        )
+                    })?;
+                }
                 Ok(())
             }
         }();
@@ -489,13 +492,21 @@ impl Drop for AsyncCore {
             || {
                 if let Some(join) = self.join.lock()?.take() {
                     let _ = self.get_sender()?.send(AsyncMsg::Finish);
-                    join.join().map_err(|_| {
-                        io::Error::new(
-                            io::ErrorKind::BrokenPipe,
-                            "Logging thread worker join error",
-                        )
-                    })?;
-
+                    if join.thread().id() != thread::current().id() {
+                        // A custom Drain::log implementation could dynamically
+                        // swap out the logger which eventually invokes
+                        // AsyncCore::drop in the worker thread.
+                        // If we drop the AsyncCore inside the logger thread,
+                        // this join() either panic or dead-lock.
+                        // TODO: Figure out whether skipping join() instead of
+                        // panicking is desirable.
+                        join.join().map_err(|_| {
+                            io::Error::new(
+                                io::ErrorKind::BrokenPipe,
+                                "Logging thread worker join error",
+                            )
+                        })?;
+                    }
                 }
                 Ok(())
             }
