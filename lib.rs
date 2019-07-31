@@ -280,22 +280,7 @@ where
         let join = builder.spawn(move || loop {
             match rx.recv().unwrap() {
                 AsyncMsg::Record(r) => {
-                    let rs = RecordStatic {
-                        location: &*r.location,
-                        level: r.level,
-                        tag: &r.tag,
-                    };
-
-                    drain
-                        .log(
-                            &Record::new(
-                                &rs,
-                                &format_args!("{}", r.msg),
-                                BorrowedKV(&r.kv),
-                            ),
-                            &r.logger_values,
-                        )
-                        .unwrap();
+                    r.to_drain(&drain).unwrap();
                 }
                 AsyncMsg::Finish => return,
             }
@@ -461,24 +446,57 @@ impl Drain for AsyncCore {
             .serialize(record, &mut ser)
             .expect("`ToSendSerializer` can't fail");
 
-        self.send(AsyncRecord {
-            msg: fmt::format(*record.msg()),
-            level: record.level(),
-            location: Box::new(*record.location()),
-            tag: String::from(record.tag()),
-            logger_values: logger_values.clone(),
-            kv: ser.finish(),
-        })
+        self.send(AsyncRecord::from(record, logger_values))
     }
 }
 
-struct AsyncRecord {
+/// Serialized record.
+pub struct AsyncRecord {
     msg: String,
     level: Level,
     location: Box<slog::RecordLocation>,
     tag: String,
     logger_values: OwnedKVList,
     kv: Box<dyn KV + Send>,
+}
+
+impl AsyncRecord {
+    /// Serializes a `Record` and an `OwnedKVList`.
+    pub fn from(record: &Record, logger_values: &OwnedKVList) -> Self {
+        let mut ser = ToSendSerializer::new();
+        record
+            .kv()
+            .serialize(record, &mut ser)
+            .expect("`ToSendSerializer` can't fail");
+
+        AsyncRecord {
+            msg: fmt::format(*record.msg()),
+            level: record.level(),
+            location: Box::new(*record.location()),
+            tag: String::from(record.tag()),
+            logger_values: logger_values.clone(),
+            kv: ser.finish(),
+        }
+    }
+
+    /// Writes the record to a `Drain`.
+    pub fn to_drain<D: Drain>(self, drain: &D) -> Result<D::Ok, D::Err> {
+        let rs = RecordStatic {
+            location: &*self.location,
+            level: self.level,
+            tag: &self.tag,
+        };
+
+        drain
+            .log(
+                &Record::new(
+                    &rs,
+                    &format_args!("{}", self.msg),
+                    BorrowedKV(&self.kv),
+                ),
+                &self.logger_values,
+            )
+    }
 }
 
 enum AsyncMsg {
