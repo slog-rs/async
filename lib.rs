@@ -497,6 +497,21 @@ impl AsyncRecord {
                 &self.logger_values,
             )
     }
+
+    /// Deconstruct this `AsyncRecord` into a record and `OwnedKVList`.
+    pub fn as_record_values(&self, mut f: impl FnMut(&Record, &OwnedKVList)) {
+        let rs = RecordStatic {
+            location: &*self.location,
+            level: self.level,
+            tag: &self.tag,
+        };
+
+        f(&Record::new(
+            &rs,
+            &format_args!("{}", self.msg),
+            BorrowedKV(&self.kv),
+        ), &self.logger_values)
+    }
 }
 
 enum AsyncMsg {
