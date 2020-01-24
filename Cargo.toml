@@ -21,7 +21,7 @@ path = "lib.rs"
 
 [dependencies]
 slog = "2.1"
-thread_local = "0.3.3"
+thread_local = "1"
 take_mut = "0.2.0"
 crossbeam-channel = "0.3"
 
