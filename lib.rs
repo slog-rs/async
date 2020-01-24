@@ -428,7 +428,7 @@ impl AsyncCore {
         std::sync::PoisonError<sync::MutexGuard<crossbeam_channel::Sender<AsyncMsg>>>,
     > {
         self.tl_sender
-            .get_or_try(|| Ok(Box::new(self.ref_sender.clone())))
+            .get_or_try(|| Ok(self.ref_sender.clone()))
     }
 
     /// Send `AsyncRecord` to a worker thread.
