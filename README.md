@@ -12,6 +12,10 @@
   <a href="https://gitter.im/dpc/slog-async">
       <img src="https://img.shields.io/gitter/room/dpc/slog-rs.svg" alt="slog-rs Gitter Chat">
   </a>
+
+  <a href="https://deps.rs/repo/github/slog-rs/async">
+        <img src="https://deps.rs/repo/github/slog-rs/async/status.svg" alt="slog-rs Dependency Status">
+  </a>
 </p>
 
 For more information, help, to report issues etc. see [slog-rs][slog-rs].

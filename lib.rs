@@ -73,7 +73,7 @@ use take_mut::take;
 
 // {{{ Serializer
 struct ToSendSerializer {
-    kv: Box<KV + Send>,
+    kv: Box<dyn KV + Send>,
 }
 
 impl ToSendSerializer {
@@ -81,7 +81,7 @@ impl ToSendSerializer {
         ToSendSerializer { kv: Box::new(()) }
     }
 
-    fn finish(self) -> Box<KV + Send> {
+    fn finish(self) -> Box<dyn KV + Send> {
         self.kv
     }
 }
@@ -184,7 +184,7 @@ pub enum AsyncError {
     /// Could not send record to worker thread due to full queue
     Full,
     /// Fatal problem - mutex or channel poisoning issue
-    Fatal(Box<std::error::Error>),
+    Fatal(Box<dyn std::error::Error>),
 }
 
 impl<T> From<crossbeam_channel::TrySendError<T>> for AsyncError {
@@ -367,7 +367,7 @@ pub struct AsyncGuard {
 
 impl Drop for AsyncGuard {
     fn drop(&mut self) {
-        let _err: Result<(), Box<std::error::Error>> = {
+        let _err: Result<(), Box<dyn std::error::Error>> = {
             || {
                 let _ = self.tx.send(AsyncMsg::Finish);
                 let join = self.join.take().unwrap();
@@ -478,7 +478,7 @@ struct AsyncRecord {
     location: Box<slog::RecordLocation>,
     tag: String,
     logger_values: OwnedKVList,
-    kv: Box<KV + Send>,
+    kv: Box<dyn KV + Send>,
 }
 
 enum AsyncMsg {
@@ -488,7 +488,7 @@ enum AsyncMsg {
 
 impl Drop for AsyncCore {
     fn drop(&mut self) {
-        let _err: Result<(), Box<std::error::Error>> = {
+        let _err: Result<(), Box<dyn std::error::Error>> = {
             || {
                 if let Some(join) = self.join.lock()?.take() {
                     let _ = self.get_sender()?.send(AsyncMsg::Finish);
