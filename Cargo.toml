@@ -1,6 +1,6 @@
 [package]
 name = "slog-async"
-version = "2.4.0"
+version = "2.5.0"
 authors = ["Dawid Ciężarkiewicz <dpc@dpc.pw>"]
 description = "Asynchronous drain for slog-rs"
 keywords = ["slog", "logging", "log", "asynchronous"]
