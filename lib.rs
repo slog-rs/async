@@ -280,8 +280,15 @@ where
         let join = builder.spawn(move || loop {
             match rx.recv().unwrap() {
                 AsyncMsg::Record(r) => {
+                    let location = slog::RecordLocation {
+                        file: &*r.file,
+                        line: r.line,
+                        column: r.column,
+                        function: &*r.function,
+                        module: &*r.module,
+                    };
                     let rs = RecordStatic {
-                        location: &*r.location,
+                        location: &location,
                         level: r.level,
                         tag: &r.tag,
                     };
@@ -464,7 +471,11 @@ impl Drain for AsyncCore {
         self.send(AsyncRecord {
             msg: fmt::format(*record.msg()),
             level: record.level(),
-            location: Box::new(*record.location()),
+            file: String::from(record.file()),
+            line: record.line(),
+            column: record.column(),
+            function: String::from(record.function()),
+            module: String::from(record.module()),
             tag: String::from(record.tag()),
             logger_values: logger_values.clone(),
             kv: ser.finish(),
@@ -475,7 +486,11 @@ impl Drain for AsyncCore {
 struct AsyncRecord {
     msg: String,
     level: Level,
-    location: Box<slog::RecordLocation>,
+    file: String,
+    line: u32,
+    column: u32,
+    function: String,
+    module: String,
     tag: String,
     logger_values: OwnedKVList,
     kv: Box<dyn KV + Send>,
