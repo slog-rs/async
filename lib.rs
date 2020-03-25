@@ -280,7 +280,7 @@ where
         let join = builder.spawn(move || loop {
             match rx.recv().unwrap() {
                 AsyncMsg::Record(r) => {
-                    r.to_drain(&drain).unwrap();
+                    r.to_log(&drain).unwrap();
                 }
                 AsyncMsg::Finish => return,
             }
@@ -480,7 +480,7 @@ impl AsyncRecord {
     }
 
     /// Writes the record to a `Drain`.
-    pub fn to_drain<D: Drain>(self, drain: &D) -> Result<D::Ok, D::Err> {
+    pub fn to_log<D: Drain>(self, drain: &D) -> Result<D::Ok, D::Err> {
         let rs = RecordStatic {
             location: &*self.location,
             level: self.level,
