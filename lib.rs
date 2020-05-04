@@ -50,24 +50,24 @@
 
 #[macro_use]
 extern crate slog;
-extern crate thread_local;
-extern crate take_mut;
 extern crate crossbeam_channel;
+extern crate take_mut;
+extern crate thread_local;
 
 use crossbeam_channel::Sender;
 
-use slog::{Record, RecordStatic, Level, SingleKV, KV, BorrowedKV};
-use slog::{Serializer, OwnedKVList, Key};
+use slog::{BorrowedKV, Level, Record, RecordStatic, SingleKV, KV};
+use slog::{Key, OwnedKVList, Serializer};
 
 use slog::Drain;
-use std::{io, thread};
 use std::error::Error;
 use std::fmt;
 use std::sync;
+use std::{io, thread};
 
-use std::sync::Mutex;
 use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
+use std::sync::Mutex;
 use take_mut::take;
 // }}}
 
@@ -168,7 +168,11 @@ impl Serializer for ToSendSerializer {
     }
 
     #[cfg(feature = "nested-values")]
-    fn emit_serde(&mut self, key: Key, value: &slog::SerdeValue) -> slog::Result {
+    fn emit_serde(
+        &mut self,
+        key: Key,
+        value: &slog::SerdeValue,
+    ) -> slog::Result {
         let val = value.to_sendable();
         take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
         Ok(())
@@ -195,17 +199,19 @@ impl<T> From<crossbeam_channel::TrySendError<T>> for AsyncError {
 
 impl<T> From<crossbeam_channel::SendError<T>> for AsyncError {
     fn from(_: crossbeam_channel::SendError<T>) -> AsyncError {
-        AsyncError::Fatal(Box::new(
-            io::Error::new(io::ErrorKind::BrokenPipe, "The logger thread terminated"),
-        ))
+        AsyncError::Fatal(Box::new(io::Error::new(
+            io::ErrorKind::BrokenPipe,
+            "The logger thread terminated",
+        )))
     }
 }
 
 impl<T> From<std::sync::PoisonError<T>> for AsyncError {
     fn from(err: std::sync::PoisonError<T>) -> AsyncError {
-        AsyncError::Fatal(Box::new(
-            io::Error::new(io::ErrorKind::BrokenPipe, err.description()),
-        ))
+        AsyncError::Fatal(Box::new(io::Error::new(
+            io::ErrorKind::BrokenPipe,
+            err.description(),
+        )))
     }
 }
 
@@ -268,23 +274,23 @@ where
         self
     }
 
-    fn spawn_thread(
-        self,
-    ) -> (thread::JoinHandle<()>, Sender<AsyncMsg>) {
+    fn spawn_thread(self) -> (thread::JoinHandle<()>, Sender<AsyncMsg>) {
         let (tx, rx) = crossbeam_channel::bounded(self.chan_size);
         let mut builder = thread::Builder::new();
         if let Some(thread_name) = self.thread_name {
             builder = builder.name(thread_name);
         }
         let drain = self.drain;
-        let join = builder.spawn(move || loop {
-            match rx.recv().unwrap() {
-                AsyncMsg::Record(r) => {
-                    r.log_to(&drain).unwrap();
+        let join = builder
+            .spawn(move || loop {
+                match rx.recv().unwrap() {
+                    AsyncMsg::Record(r) => {
+                        r.log_to(&drain).unwrap();
+                    }
+                    AsyncMsg::Finish => return,
                 }
-                AsyncMsg::Finish => return,
-            }
-        }).unwrap();
+            })
+            .unwrap();
 
         (join, tx)
     }
@@ -410,10 +416,11 @@ impl AsyncCore {
         &self,
     ) -> Result<
         &crossbeam_channel::Sender<AsyncMsg>,
-        std::sync::PoisonError<sync::MutexGuard<crossbeam_channel::Sender<AsyncMsg>>>,
+        std::sync::PoisonError<
+            sync::MutexGuard<crossbeam_channel::Sender<AsyncMsg>>,
+        >,
     > {
-        self.tl_sender
-            .get_or_try(|| Ok(self.ref_sender.clone()))
+        self.tl_sender.get_or_try(|| Ok(self.ref_sender.clone()))
     }
 
     /// Send `AsyncRecord` to a worker thread.
@@ -439,7 +446,6 @@ impl Drain for AsyncCore {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> AsyncResult<()> {
-
         let mut ser = ToSendSerializer::new();
         record
             .kv()
@@ -487,15 +493,14 @@ impl AsyncRecord {
             tag: &self.tag,
         };
 
-        drain
-            .log(
-                &Record::new(
-                    &rs,
-                    &format_args!("{}", self.msg),
-                    BorrowedKV(&self.kv),
-                ),
-                &self.logger_values,
-            )
+        drain.log(
+            &Record::new(
+                &rs,
+                &format_args!("{}", self.msg),
+                BorrowedKV(&self.kv),
+            ),
+            &self.logger_values,
+        )
     }
 
     /// Deconstruct this `AsyncRecord` into a record and `OwnedKVList`.
@@ -506,11 +511,14 @@ impl AsyncRecord {
             tag: &self.tag,
         };
 
-        f(&Record::new(
-            &rs,
-            &format_args!("{}", self.msg),
-            BorrowedKV(&self.kv),
-        ), &self.logger_values)
+        f(
+            &Record::new(
+                &rs,
+                &format_args!("{}", self.msg),
+                BorrowedKV(&self.kv),
+            ),
+            &self.logger_values,
+        )
     }
 }
 
@@ -597,17 +605,22 @@ where
     pub fn chan_size(self, s: usize) -> Self {
         AsyncBuilder {
             core: self.core.chan_size(s),
-            .. self
+            ..self
         }
     }
 
     /// Sets what will happen if the channel is full.
-    pub fn overflow_strategy(self, overflow_strategy: OverflowStrategy) -> Self {
+    pub fn overflow_strategy(
+        self,
+        overflow_strategy: OverflowStrategy,
+    ) -> Self {
         let (block, inc) = match overflow_strategy {
             OverflowStrategy::Block => (true, false),
             OverflowStrategy::Drop => (false, false),
             OverflowStrategy::DropAndReport => (false, true),
-            OverflowStrategy::DoNotMatchAgainstThisAndReadTheDocs => panic!("Invalid variant"),
+            OverflowStrategy::DoNotMatchAgainstThisAndReadTheDocs => {
+                panic!("Invalid variant")
+            }
         };
         AsyncBuilder {
             core: self.core.blocking(block),
@@ -625,7 +638,7 @@ where
     pub fn thread_name(self, name: String) -> Self {
         AsyncBuilder {
             core: self.core.thread_name(name),
-            .. self
+            ..self
         }
     }
 
@@ -750,15 +763,14 @@ impl Drain for Async {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> AsyncResult<()> {
-
         self.push_dropped(logger_values)?;
 
         match self.core.log(record, logger_values) {
             Ok(()) => {}
             Err(AsyncError::Full) if self.inc_dropped => {
                 self.dropped.fetch_add(1, Ordering::Relaxed);
-            },
-            Err(AsyncError::Full) => {},
+            }
+            Err(AsyncError::Full) => {}
             Err(e) => return Err(e),
         }
 
