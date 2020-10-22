@@ -23,7 +23,7 @@ path = "lib.rs"
 slog = "2.1"
 thread_local = "1"
 take_mut = "0.2.0"
-crossbeam-channel = "0.4"
+crossbeam-channel = "0.5"
 
 [package.metadata.docs.rs]
 features = ["nested-values", "dynamic-keys"]
