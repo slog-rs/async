@@ -50,11 +50,11 @@
 
 #[macro_use]
 extern crate slog;
-extern crate crossbeam_channel;
+extern crate flume;
 extern crate take_mut;
 extern crate thread_local;
 
-use crossbeam_channel::Sender;
+use flume::Sender;
 
 use slog::{BorrowedKV, Level, Record, RecordStatic, SingleKV, KV};
 use slog::{Key, OwnedKVList, Serializer};
@@ -190,14 +190,14 @@ pub enum AsyncError {
     Fatal(Box<dyn std::error::Error>),
 }
 
-impl<T> From<crossbeam_channel::TrySendError<T>> for AsyncError {
-    fn from(_: crossbeam_channel::TrySendError<T>) -> AsyncError {
+impl<T> From<flume::TrySendError<T>> for AsyncError {
+    fn from(_: flume::TrySendError<T>) -> AsyncError {
         AsyncError::Full
     }
 }
 
-impl<T> From<crossbeam_channel::SendError<T>> for AsyncError {
-    fn from(_: crossbeam_channel::SendError<T>) -> AsyncError {
+impl<T> From<flume::SendError<T>> for AsyncError {
+    fn from(_: flume::SendError<T>) -> AsyncError {
         AsyncError::Fatal(Box::new(io::Error::new(
             io::ErrorKind::BrokenPipe,
             "The logger thread terminated",
@@ -274,7 +274,7 @@ where
     }
 
     fn spawn_thread(self) -> (thread::JoinHandle<()>, Sender<AsyncMsg>) {
-        let (tx, rx) = crossbeam_channel::bounded(self.chan_size);
+        let (tx, rx) = flume::bounded(self.chan_size);
         let mut builder = thread::Builder::new();
         if let Some(thread_name) = self.thread_name {
             builder = builder.name(thread_name);
@@ -414,9 +414,9 @@ impl AsyncCore {
     fn get_sender(
         &self,
     ) -> Result<
-        &crossbeam_channel::Sender<AsyncMsg>,
+        &flume::Sender<AsyncMsg>,
         std::sync::PoisonError<
-            sync::MutexGuard<crossbeam_channel::Sender<AsyncMsg>>,
+            sync::MutexGuard<flume::Sender<AsyncMsg>>,
         >,
     > {
         self.tl_sender.get_or_try(|| Ok(self.ref_sender.clone()))
