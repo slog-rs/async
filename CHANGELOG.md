@@ -4,6 +4,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 2.6.0 - 2021-01-12
+
+* Upgrade `crossbeam-channel`
+
 ## 2.5.0 - 2020-01-29
 
 * Fix compilation warnings
