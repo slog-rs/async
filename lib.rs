@@ -446,12 +446,6 @@ impl Drain for AsyncCore {
         record: &Record,
         logger_values: &OwnedKVList,
     ) -> AsyncResult<()> {
-        let mut ser = ToSendSerializer::new();
-        record
-            .kv()
-            .serialize(record, &mut ser)
-            .expect("`ToSendSerializer` can't fail");
-
         self.send(AsyncRecord::from(record, logger_values))
     }
 }
