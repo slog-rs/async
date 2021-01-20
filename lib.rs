@@ -786,4 +786,66 @@ impl Drop for Async {
 
 // }}}
 
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use std::sync::mpsc;
+
+    #[test]
+    fn integration_test() {
+        let (mock_drain, mock_drain_rx) = MockDrain::new();
+        let async_drain = AsyncBuilder::new(mock_drain)
+            .build();
+        let slog = slog::Logger::root(async_drain.fuse(), o!("field1" => "value1"));
+
+        info!(slog, "Message 1"; "field2" => "value2");
+        warn!(slog, "Message 2"; "field3" => "value3");
+        assert_eq!(mock_drain_rx.recv().unwrap(), r#"INFO Message 1: [("field1", "value1"), ("field2", "value2")]"#);
+        assert_eq!(mock_drain_rx.recv().unwrap(), r#"WARN Message 2: [("field1", "value1"), ("field3", "value3")]"#);
+    }
+
+
+    /// Test-helper drain
+    #[derive(Debug)]
+    struct MockDrain {
+        tx: mpsc::Sender<String>,
+    }
+
+    impl MockDrain {
+        fn new() -> (Self, mpsc::Receiver<String>) {
+            let (tx, rx) = mpsc::channel();
+            (Self { tx }, rx)
+        }
+    }
+
+    impl slog::Drain for MockDrain {
+        type Ok = ();
+        type Err = slog::Never;
+
+        fn log(&self, record: &Record, logger_kv: &OwnedKVList) -> Result<Self::Ok, Self::Err> {
+            let mut serializer = MockSerializer::default();
+            logger_kv.serialize(record, &mut serializer).unwrap();
+            record.kv().serialize(record, &mut serializer).unwrap();
+            let level = record.level().as_short_str();
+            let msg = record.msg().to_string();
+            let entry = format!("{} {}: {:?}", level, msg, serializer.kvs);
+            self.tx.send(entry).unwrap();
+            Ok(())
+        }
+    }
+
+    #[derive(Default)]
+    struct MockSerializer {
+        kvs: Vec<(String, String)>,
+    }
+
+    impl slog::Serializer for MockSerializer {
+        fn emit_arguments(&mut self, key: Key, val: &fmt::Arguments) -> Result<(), slog::Error> {
+            self.kvs.push((key.to_string(), val.to_string()));
+            Ok(())
+        }
+    }
+}
+
 // vim: foldmethod=marker foldmarker={{{,}}}
