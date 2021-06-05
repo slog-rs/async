@@ -30,9 +30,11 @@
 //! ```
 //! // ...
 //! fn main() {
-//!     let _exit_code = run(); // logger gets flushed as `run()` returns.
-//!     // std::process::exit(exit_code) // this needs to be commented or it'll
-//!                                      // end the doctest
+//!     let exit_code = run(); // logger gets flushed as `run()` returns.
+//! #   if false {
+//! #   // this must not run or it'll end the doctest
+//!     std::process::exit(exit_code)
+//! #   }
 //! }
 //!
 //! fn run() -> i32 {
