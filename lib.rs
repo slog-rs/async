@@ -53,11 +53,13 @@ extern crate slog;
 extern crate crossbeam_channel;
 extern crate take_mut;
 extern crate thread_local;
+extern crate serde;
 
 use crossbeam_channel::Sender;
 
 use slog::{BorrowedKV, Level, Record, RecordStatic, SingleKV, KV};
 use slog::{Key, OwnedKVList, Serializer};
+use serde::serde_if_integer128;
 
 use slog::Drain;
 use std::error::Error;
@@ -143,6 +145,16 @@ impl Serializer for ToSendSerializer {
     fn emit_f64(&mut self, key: Key, val: f64) -> slog::Result {
         take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
         Ok(())
+    }
+    serde_if_integer128! {
+        fn emit_u128(&mut self, key: Key, val: u128) -> slog::Result {
+            take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
+            Ok(())
+        }
+        fn emit_i128(&mut self, key: Key, val: i128) -> slog::Result {
+            take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
+            Ok(())
+        }
     }
     fn emit_usize(&mut self, key: Key, val: usize) -> slog::Result {
         take(&mut self.kv, |kv| Box::new((kv, SingleKV(key, val))));
