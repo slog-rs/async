@@ -4,6 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 2.7.0 - 2021-07-29
+
+* Fix license field to be a valid SPDX expression
+* Support u128/i128
+
+## 2.6.0 - 2021-01-12
+
+* Update crossbeam-channel to 0.5
+* Expose the serialization capabilities
+
 ## 2.5.0 - 2020-01-29
 
 * Fix compilation warnings
