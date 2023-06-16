@@ -4,6 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
+## 2.8.0 - 2023-06-16
+
+* Call of deprecated `err.description()` replaced with `err.to_string()`.
+* Avoided all catchable panics in async drain thread.
+
 ## 2.7.0 - 2021-07-29
 
 * Fix license field to be a valid SPDX expression
