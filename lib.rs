@@ -70,6 +70,8 @@ use std::sync::atomic::AtomicUsize;
 use std::sync::atomic::Ordering;
 use std::sync::Mutex;
 use take_mut::take;
+
+use std::panic::{catch_unwind, AssertUnwindSafe};
 // }}}
 
 // {{{ Serializer
@@ -293,12 +295,25 @@ where
         }
         let drain = self.drain;
         let join = builder
-            .spawn(move || loop {
-                match rx.recv().unwrap() {
-                    AsyncMsg::Record(r) => {
-                        r.log_to(&drain).unwrap();
+            .spawn(move || {
+                let drain = AssertUnwindSafe(&drain);
+                // catching possible unwinding panics which can occur in used inner Drain implementation
+                if let Err(panic_cause) = catch_unwind(move || loop {
+                    match rx.recv() {
+                        Ok(AsyncMsg::Record(r)) => {
+                            if r.log_to(&*drain).is_err() {
+                                eprintln!("slog-async failed while writing");
+                                return;
+                            }
+                        }
+                        Ok(AsyncMsg::Finish) => return,
+                        Err(recv_error) => {
+                            eprintln!("slog-async failed while receiving: {recv_error}");
+                            return;
+                        }
                     }
-                    AsyncMsg::Finish => return,
+                }) {
+                    eprintln!("slog-async failed with panic: {panic_cause:?}")
                 }
             })
             .unwrap();
