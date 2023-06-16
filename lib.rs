@@ -62,7 +62,6 @@ use slog::{BorrowedKV, Level, Record, RecordStatic, SingleKV, KV};
 use slog::{Key, OwnedKVList, Serializer};
 
 use slog::Drain;
-use std::error::Error;
 use std::fmt;
 use std::sync;
 use std::{io, thread};
@@ -222,7 +221,7 @@ impl<T> From<std::sync::PoisonError<T>> for AsyncError {
     fn from(err: std::sync::PoisonError<T>) -> AsyncError {
         AsyncError::Fatal(Box::new(io::Error::new(
             io::ErrorKind::BrokenPipe,
-            err.description(),
+            err.to_string(),
         )))
     }
 }
