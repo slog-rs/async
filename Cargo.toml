@@ -10,6 +10,7 @@ documentation = "https://docs.rs/slog-async"
 homepage = "https://github.com/slog-rs/slog"
 repository = "https://github.com/slog-rs/async"
 readme = "README.md"
+rust-version = "1.59.0"
 
 [features]
 nested-values = ["slog/nested-values"]
