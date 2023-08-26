@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 * Call of deprecated `err.description()` replaced with `err.to_string()`.
 * Avoided all catchable panics in async drain thread.
+* Define minimum supported rust version.
 
 ## 2.7.0 - 2021-07-29
 
