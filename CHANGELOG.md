@@ -6,12 +6,14 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 
+* Define minimum supported rust version.
+* Setup Github Actions.
+* Fixup some minor typos in CHANGELOG.md, including an incorrect release date for 2.8.0.
+
 ## 2.8.0 - 2023-08-26
 
 * Call of deprecated `err.description()` replaced with `err.to_string()`.
 * Avoided all catchable panics in async drain thread.
-* Define minimum supported rust version.
-* Setup Github Actions.
 
 ## 2.7.0 - 2021-07-29
 
